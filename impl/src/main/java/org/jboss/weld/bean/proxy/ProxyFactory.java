@@ -561,22 +561,17 @@ public class ProxyFactory<T>
       {
          ptypes[i] = DescriptorUtils.classToStringRepresentation(method.getParameterTypes()[i]);
       }
-      invokeMethodHandler(file, b, method.getDeclaringClass().getName(), method.getName(), ptypes, DescriptorUtils.classToStringRepresentation(method.getReturnType()));
+      invokeMethodHandler(file, b, method.getDeclaringClass().getName(), method.getName(), ptypes, DescriptorUtils.classToStringRepresentation(method.getReturnType()), true, null);
       return b;
-      
-      //TODO: need to ask David Allen about this
+
+      // TODO: need to ask David Allen about this
       /*
-      if (Modifier.isPublic(method.getModifiers()))
-      {
-         bodyString.append(".class.getMethod(\"");
-         log.trace("Using getMethod in proxy for method " + method);
-      }
-      else
-      {
-         bodyString.append(".class.getDeclaredMethod(\"");
-         log.trace("Using getDeclaredMethod in proxy for method " + method);
-      }
-      */
+       * if (Modifier.isPublic(method.getModifiers())) {
+       * bodyString.append(".class.getMethod(\"");
+       * log.trace("Using getMethod in proxy for method " + method); } else {
+       * bodyString.append(".class.getDeclaredMethod(\"");
+       * log.trace("Using getDeclaredMethod in proxy for method " + method); }
+       */
    }
 
    /**
@@ -588,8 +583,10 @@ public class ProxyFactory<T>
     * @param methodName the name of the method to invoke
     * @param methodParameters method paramters in internal JVM format
     * @param returnType return type in internal format
+    * @param addReturnInstruction set to true you want to return the result of
+    *           the method invocation
     */
-   protected static void invokeMethodHandler(ClassFile file, Bytecode b, String declaringClass, String methodName, String[] methodParameters, String returnType)
+   protected static void invokeMethodHandler(ClassFile file, Bytecode b, String declaringClass, String methodName, String[] methodParameters, String returnType, boolean addReturnInstruction, BytecodeMethodResolver bytecodeMethodResolver)
    {
       // now we need to build the bytecode. The order we do this in is as
       // follows:
@@ -606,7 +603,14 @@ public class ProxyFactory<T>
       b.add(Opcode.ALOAD_0);
       b.addGetfield(file.getName(), "methodHandler", DescriptorUtils.classToStringRepresentation(MethodHandler.class));
       b.add(Opcode.ALOAD_0);
-      getDeclaredMethod(b, declaringClass, methodName, methodParameters);
+      if (bytecodeMethodResolver == null)
+      {
+         getDeclaredMethod(b, declaringClass, methodName, methodParameters);
+      }
+      else
+      {
+         bytecodeMethodResolver.getDeclaredMethod(file, b, declaringClass, methodName, methodParameters);
+      }
       b.add(Opcode.ACONST_NULL);
 
       b.addIconst(methodParameters.length);
@@ -637,45 +641,47 @@ public class ProxyFactory<T>
       // now we have all our arguments on the stack
       // lets invoke the method
       b.addInvokeinterface(MethodHandler.class.getName(), "invoke", "(Ljava/lang/Object;Ljava/lang/reflect/Method;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;", 5);
-
-      // now we need to return the appropriate type
-      if (returnType.equals("V"))
+      if (addReturnInstruction)
       {
-         b.add(Opcode.RETURN);
-      }
-      else if (DescriptorUtils.isPrimitive(returnType))
-      {
-         Boxing.unbox(b, returnType);
-         if (returnType.equals("D"))
+         // now we need to return the appropriate type
+         if (returnType.equals("V"))
          {
-            b.add(Opcode.DRETURN);
+            b.add(Opcode.RETURN);
          }
-         else if (returnType.equals("F"))
+         else if (DescriptorUtils.isPrimitive(returnType))
          {
-            b.add(Opcode.FRETURN);
-         }
-         else if (returnType.equals("J"))
-         {
-            b.add(Opcode.LRETURN);
+            Boxing.unbox(b, returnType);
+            if (returnType.equals("D"))
+            {
+               b.add(Opcode.DRETURN);
+            }
+            else if (returnType.equals("F"))
+            {
+               b.add(Opcode.FRETURN);
+            }
+            else if (returnType.equals("J"))
+            {
+               b.add(Opcode.LRETURN);
+            }
+            else
+            {
+               b.add(Opcode.IRETURN);
+            }
          }
          else
          {
-            b.add(Opcode.IRETURN);
+            String castType = returnType;
+            if (!returnType.startsWith("["))
+            {
+               castType = returnType.substring(1).substring(0, returnType.length() - 2);
+            }
+            b.addCheckcast(castType);
+            b.add(Opcode.ARETURN);
          }
-      }
-      else
-      {
-         String castType = returnType;
-         if (!returnType.startsWith("["))
+         if (b.getMaxLocals() < localVariableCount)
          {
-            castType = returnType.substring(1).substring(0, returnType.length() - 2);
+            b.setMaxLocals(localVariableCount);
          }
-         b.addCheckcast(castType);
-         b.add(Opcode.ARETURN);
-      }
-      if (b.getMaxLocals() < localVariableCount)
-      {
-         b.setMaxLocals(localVariableCount);
       }
    }
 
@@ -797,6 +803,11 @@ public class ProxyFactory<T>
    public Class<?> getBeanType()
    {
       return beanType;
+   }
+
+   static protected abstract class BytecodeMethodResolver
+   {
+      abstract void getDeclaredMethod(ClassFile file, Bytecode code, String declaringClass, String methodName, String[] parameterTypes);
    }
 
 }
