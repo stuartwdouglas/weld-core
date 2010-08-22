@@ -22,16 +22,18 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Collections;
 
-import javassist.CtClass;
-import javassist.CtMethod;
-import javassist.CtNewMethod;
 import javassist.NotFoundException;
+import javassist.bytecode.AccessFlag;
+import javassist.bytecode.Bytecode;
+import javassist.bytecode.ClassFile;
 
-import org.jboss.interceptor.util.proxy.TargetInstanceProxy;
 import org.jboss.weld.exceptions.WeldException;
 import org.jboss.weld.injection.FieldInjectionPoint;
 import org.jboss.weld.injection.ParameterInjectionPoint;
 import org.jboss.weld.injection.WeldInjectionPoint;
+import org.jboss.weld.util.bytecode.BytecodeUtils;
+import org.jboss.weld.util.bytecode.DescriptorUtils;
+import org.jboss.weld.util.bytecode.MethodUtils;
 
 /**
  * This special proxy factory is mostly used for abstract decorators. When a
@@ -45,21 +47,12 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
 {
    public static final String             PROXY_SUFFIX = "DecoratorProxy";
    private final WeldInjectionPoint<?, ?> delegateInjectionPoint;
-   private final CtClass                  delegateClass;
    private final Field                    delegateField;
 
    public DecoratorProxyFactory(Class<T> proxyType, WeldInjectionPoint<?, ?> delegateInjectionPoint)
    {
       super(proxyType, Collections.EMPTY_SET);
       this.delegateInjectionPoint = delegateInjectionPoint;
-      try
-      {
-         delegateClass = getClassPool().get(((Class<?>) delegateInjectionPoint.getBaseType()).getName());
-      }
-      catch (NotFoundException e)
-      {
-         throw new WeldException(e);
-      }
       if (delegateInjectionPoint instanceof FieldInjectionPoint<?, ?>)
       {
          delegateField = ((FieldInjectionPoint<?, ?>) delegateInjectionPoint).getJavaMember();
@@ -70,27 +63,21 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
       }
    }
 
-   private void addHandlerInitializerMethod(CtClass proxyClassType) throws Exception
+   private void addHandlerInitializerMethod(ClassFile proxyClassType) throws Exception
    {
-      CtClass objectClass = getClassPool().get(Object.class.getName());
-      proxyClassType.addMethod(CtNewMethod.make(Modifier.PRIVATE, CtClass.voidType, "_initMH", new CtClass[] { objectClass }, null, createMethodHandlerInitializerBody(proxyClassType), proxyClassType));
+      proxyClassType.addMethod(MethodUtils.makeMethod(Modifier.PRIVATE, void.class, "_initMH", new Class[] { Object.class }, new Class[] {}, createMethodHandlerInitializerBody(proxyClassType), proxyClassType));
    }
 
-   private String createMethodHandlerInitializerBody(CtClass proxyClassType)
+   private Bytecode createMethodHandlerInitializerBody(ClassFile proxyClassType)
    {
-      StringBuilder bodyString = new StringBuilder();
-      bodyString.append("{ methodHandler = (javassist.util.proxy.MethodHandler) methodHandler.invoke($0, ");
-      bodyString.append(proxyClassType.getName());
-      bodyString.append(".class.getDeclaredMethod(\"");
-      bodyString.append("_initMH");
-      bodyString.append("\", new Class[]{Object.class}");
-      bodyString.append("), null, $args); }");
-      log.trace("Created MH initializer body for proxy:  " + bodyString.toString());
-      return bodyString.toString();
+      Bytecode b = new Bytecode(proxyClassType.getConstPool(), 1, 2);
+      invokeMethodHandler(proxyClassType, b, proxyClassType.getName(), "_initMH", new String[] { "Ljava/lang/Object;" }, "V");
+      log.trace("Created MH initializer body for decorator proxy:  " + getBeanType());
+      return b;
    }
 
    @Override
-   protected void addMethodsFromClass(CtClass proxyClassType)
+   protected void addMethodsFromClass(ClassFile proxyClassType)
    {
       String initializerMethod = null;
       int delegateParameterPosition = -1;
@@ -109,24 +96,24 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
          {
             addHandlerInitializerMethod(proxyClassType);
          }
-         for (CtMethod method : proxyClassType.getMethods())
+         for (Method method : getBeanType().getMethods())
          {
             if (!method.getDeclaringClass().getName().equals("java.lang.Object") || method.getName().equals("toString"))
             {
-               String methodBody = null;
+               Bytecode methodBody = null;
                if ((delegateParameterPosition >= 0) && (initializerMethod.equals(method.getName())))
                {
-                  methodBody = createDelegateInitializerCode(initializerMethod, delegateParameterPosition);
+                  methodBody = createDelegateInitializerCode(proxyClassType, method, delegateParameterPosition);
                }
                if (Modifier.isAbstract(method.getModifiers()))
                {
-                  methodBody = createAbstractMethodCode(method);
+                  methodBody = createAbstractMethodCode(proxyClassType, method);
                }
 
                if (methodBody != null)
                {
-                  log.trace("Adding method " + method.getLongName() + " " + methodBody);
-                  proxyClassType.addMethod(CtNewMethod.make(method.getReturnType(), method.getName(), method.getParameterTypes(), method.getExceptionTypes(), methodBody, proxyClassType));
+                  log.trace("Adding method " + method);
+                  proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, method.getReturnType(), method.getName(), method.getParameterTypes(), method.getExceptionTypes(), methodBody, proxyClassType));
                }
             }
          }
@@ -143,82 +130,101 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
       return PROXY_SUFFIX;
    }
 
-   private String createAbstractMethodCode(CtMethod method) throws NotFoundException
+   private Bytecode createAbstractMethodCode(ClassFile file, Method method) throws NotFoundException
    {
-      CtMethod delegateMethod = null;
-      StringBuilder bodyString = new StringBuilder();
-      bodyString.append("{ ");
-      try
-      {
-         delegateMethod = delegateClass.getMethod(method.getName(), method.getSignature());
-         if (method.getReturnType() != null)
-         {
-            bodyString.append("return ($r)");
-         }
-      }
-      catch (NotFoundException e)
-      {
-         throw new WeldException(e);
-      }
-
       if ((delegateField != null) && (!Modifier.isPrivate(delegateField.getModifiers())))
       {
          // Call the corresponding method directly on the delegate
-         bodyString.append(delegateField.getName());
-         bodyString.append('.');
-         bodyString.append(method.getName());
-         bodyString.append("($$); }");
-         log.trace("Delegating call directly to delegate for method " + method.getLongName());
-      }
-      else
-      {
-         // Use the associated method handler to invoke the method
-         bodyString.append("methodHandler.invoke($0,");
-         if (Modifier.isPublic(delegateMethod.getModifiers()))
+         Bytecode b = new Bytecode(file.getConstPool());
+         b.setMaxLocals(MethodUtils.calculateMaxLocals(method));
+         // load the delegate field
+         b.addAload(0);
+         b.addGetfield(file.getName(), delegateField.getName(), DescriptorUtils.classToStringRepresentation(delegateField.getType()));
+         int localVariables = 1;
+         String methodDescriptor = DescriptorUtils.getMethodDescriptor(method);
+         for (int i = 0; i < method.getParameterTypes().length; ++i)
          {
-            bodyString.append(getTargetClass());
-            bodyString.append(".getMethod(\"");
-            log.trace("Using getMethod in proxy for method " + method.getLongName());
+            Class<?> type = method.getParameterTypes()[i];
+            BytecodeUtils.addLoadInstruction(b, DescriptorUtils.classToStringRepresentation(type), localVariables);
+            if (type == long.class || type == double.class)
+            {
+               localVariables = localVariables + 2;
+            }
+            else
+            {
+               localVariables++;
+            }
+         }
+         if (delegateField.getType().isInterface())
+         {
+            b.addInvokeinterface(delegateField.getType().getName(), method.getName(), methodDescriptor, localVariables);
          }
          else
          {
-            bodyString.append(method.getDeclaringClass().getName());
-            bodyString.append(".class.getDeclaredMethod(\"");
-            log.trace("Using getDeclaredMethod in proxy for method " + method.getLongName());
+            b.addInvokevirtual(delegateField.getType().getName(), method.getName(), methodDescriptor);
          }
-         bodyString.append(method.getName());
-         bodyString.append("\", ");
-         bodyString.append(getSignatureClasses(method));
-         bodyString.append("), null, $args); }");
+         BytecodeUtils.addReturnInstruction(b, method.getReturnType());
+         return b;
       }
-
-      return bodyString.toString();
-   }
-
-   private String getTargetClass()
-   {
-      StringBuilder buffer = new StringBuilder();
-      buffer.append("((Class)methodHandler.invoke($0,");
-      buffer.append(TargetInstanceProxy.class.getName());
-      buffer.append(".class.getMethod(\"getTargetClass\", null), null, null))");
-      return buffer.toString();
-   }
-
-   private String createDelegateInitializerCode(String initializerName, int delegateParameterPosition)
-   {
-      StringBuilder buffer = new StringBuilder();
-      buffer.append("{ super");
-      if (initializerName != null)
+      else
       {
-         buffer.append('.');
-         buffer.append(initializerName);
+         return createInterceptorBody(file, method);
       }
-      buffer.append("($$);\n");
-      buffer.append("_initMH");
-      buffer.append("($");
-      buffer.append(delegateParameterPosition + 1);
-      buffer.append("); }");
-      return buffer.toString();
+   }
+
+   /**
+    * When creates the delegate initializer code when the delegate is injected
+    * into a method.
+    * 
+    * super initializer method is called first, and then _initMH is called
+    * 
+    * @param file
+    * @param initializerName
+    * @param delegateParameterPosition
+    * @return
+    */
+   private Bytecode createDelegateInitializerCode(ClassFile file, Method intializerMethod, int delegateParameterPosition)
+   {
+      Bytecode b = new Bytecode(file.getConstPool());
+      // we need to push all the pareters on the stack to call the corresponding
+      // superclass arguments
+      b.addAload(0); // load this
+      int localVariables = 1;
+      int actualDelegateParamterPosition = 0;
+      String methodDescriptor = DescriptorUtils.getMethodDescriptor(intializerMethod);
+      for (int i = 0; i < intializerMethod.getParameterTypes().length; ++i)
+      {
+         if (i == delegateParameterPosition)
+         {
+            // figure out the actual position of the delegate in the local
+            // variables
+            actualDelegateParamterPosition = localVariables;
+         }
+         Class<?> type = intializerMethod.getParameterTypes()[i];
+         BytecodeUtils.addLoadInstruction(b, DescriptorUtils.classToStringRepresentation(type), localVariables);
+         if (type == long.class || type == double.class)
+         {
+            localVariables = localVariables + 2;
+         }
+         else
+         {
+            localVariables++;
+         }
+      }
+      b.addInvokespecial(file.getSuperclass(), intializerMethod.getName(), methodDescriptor);
+      // if this method returns a value it is now sitting on top of the stack
+      // we will leave it there are return it later
+
+      // now we need to call _initMH
+      b.addAload(0); // load this
+      b.addAload(actualDelegateParamterPosition); // load the delegate
+      b.addInvokevirtual(file.getName(), "_initMH", "(Ljava/lang/Object;)V");
+      // return the object from the top of the stack that we got from calling
+      // the superclass method earlier
+      BytecodeUtils.addReturnInstruction(b, intializerMethod.getReturnType());
+      b.setMaxLocals(localVariables);
+      return b;
+
    }
 
 }
