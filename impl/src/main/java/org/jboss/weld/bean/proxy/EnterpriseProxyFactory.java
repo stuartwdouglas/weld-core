@@ -58,7 +58,7 @@ public class EnterpriseProxyFactory<T> extends ProxyFactory<T>
          for (Method method : EnterpriseBeanInstance.class.getDeclaredMethods())
          {
             log.trace("Adding method " + method);
-            proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, method.getReturnType(), method.getName(), method.getParameterTypes(), method.getExceptionTypes(), createInterceptorBody(proxyClassType, method), proxyClassType));
+            proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, method.getReturnType(), method.getName(), method.getParameterTypes(), method.getExceptionTypes(), createInterceptorBody(proxyClassType, method), proxyClassType.getConstPool()));
          }
       }
       catch (Exception e)

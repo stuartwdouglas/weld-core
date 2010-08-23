@@ -28,6 +28,13 @@ import java.security.ProtectionDomain;
 import javassist.CannotCompileException;
 import javassist.bytecode.ClassFile;
 
+/**
+ * Utility class for loading a ClassFile into a classloader. This borrows
+ * heavily from javassist
+ * 
+ * @author Stuart Douglas
+ * 
+ */
 public class ClassFileUtils
 {
    private static java.lang.reflect.Method defineClass1, defineClass2;
@@ -80,8 +87,6 @@ public class ClassFileUtils
     *           default domain created by <code>java.lang.ClassLoader</code> is
     *           used.
     * 
-    * @see #getClassLoader()
-    * @since 3.3
     */
    public static Class toClass(ClassFile ct, ClassLoader loader, ProtectionDomain domain) throws CannotCompileException
    {

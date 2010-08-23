@@ -45,6 +45,7 @@ import org.jboss.weld.util.bytecode.MethodUtils;
  * the {@link BeanInstance} for further processing.
  * 
  * @author David Allen
+ * @author Stuart Douglas
  */
 public class DecoratorProxyFactory<T> extends ProxyFactory<T>
 {
@@ -68,9 +69,14 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
 
    private void addHandlerInitializerMethod(ClassFile proxyClassType) throws Exception
    {
-      proxyClassType.addMethod(MethodUtils.makeMethod(Modifier.PRIVATE, void.class, "_initMH", new Class[] { Object.class }, new Class[] {}, createMethodHandlerInitializerBody(proxyClassType), proxyClassType));
+      proxyClassType.addMethod(MethodUtils.makeMethod(Modifier.PRIVATE, void.class, "_initMH", new Class[] { Object.class }, new Class[] {}, createMethodHandlerInitializerBody(proxyClassType), proxyClassType.getConstPool()));
    }
 
+   /**
+    * calls _initMH on the method handler and then stores the result in the
+    * methodHandler field as then new methodHandler
+    * 
+    */
    private Bytecode createMethodHandlerInitializerBody(ClassFile proxyClassType)
    {
       Bytecode b = new Bytecode(proxyClassType.getConstPool(), 1, 2);
@@ -123,7 +129,7 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
                   if (methodBody != null)
                   {
                      log.trace("Adding method " + method);
-                     proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, method.getReturnType(), method.getName(), method.getParameterTypes(), method.getExceptionTypes(), methodBody, proxyClassType));
+                     proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, method.getReturnType(), method.getName(), method.getParameterTypes(), method.getExceptionTypes(), methodBody, proxyClassType.getConstPool()));
                   }
                }
             }
@@ -148,33 +154,17 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
       {
          // Call the corresponding method directly on the delegate
          Bytecode b = new Bytecode(file.getConstPool());
-         b.setMaxLocals(MethodUtils.calculateMaxLocals(method));
+         int localVariables = MethodUtils.calculateMaxLocals(method);
+         b.setMaxLocals(localVariables);
          // load the delegate field
          b.addAload(0);
          b.addGetfield(file.getName(), delegateField.getName(), DescriptorUtils.classToStringRepresentation(delegateField.getType()));
-         int localVariables = 1;
          String methodDescriptor = DescriptorUtils.getMethodDescriptor(method);
-         for (int i = 0; i < method.getParameterTypes().length; ++i)
-         {
-            Class<?> type = method.getParameterTypes()[i];
-            BytecodeUtils.addLoadInstruction(b, DescriptorUtils.classToStringRepresentation(type), localVariables);
-            if (type == long.class || type == double.class)
-            {
-               localVariables = localVariables + 2;
-            }
-            else
-            {
-               localVariables++;
-            }
-         }
-         if (delegateField.getType().isInterface())
-         {
-            b.addInvokeinterface(delegateField.getType().getName(), method.getName(), methodDescriptor, localVariables);
-         }
-         else
-         {
-            b.addInvokevirtual(delegateField.getType().getName(), method.getName(), methodDescriptor);
-         }
+         // load the parameters
+         BytecodeUtils.loadParameters(b, methodDescriptor);
+         // invoke the delegate method
+         b.addInvokeinterface(delegateField.getType().getName(), method.getName(), methodDescriptor, localVariables);
+         // return the value if applicable
          BytecodeUtils.addReturnInstruction(b, method.getReturnType());
          return b;
       }
@@ -182,10 +172,13 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
       {
          if (!Modifier.isPrivate(method.getModifiers()))
          {
+            // if it is a parameter injection point we need to initalize the
+            // injection point then handle the method with the method handler
             return createAbstractMethodHandler(file, method);
          }
          else
          {
+            // if the delegate is private we need to use the method handler
             return createInterceptorBody(file, method);
          }
       }
@@ -193,6 +186,10 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
 
    private Bytecode createAbstractMethodHandler(ClassFile file, Method method)
    {
+      // this is slightly different to a normal method handler call, as we pass
+      // in a TargetInstanceBytecodeMethodResolver. This resolver uses the
+      // method handler to call getTargetClass to get the correct class type to
+      // resolve the method with, and then resolves this method
       Bytecode b = new Bytecode(file.getConstPool());
       String[] ptypes = new String[method.getParameterTypes().length];
       for (int i = 0; i < method.getParameterTypes().length; ++i)
@@ -264,6 +261,7 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
    {
       void getDeclaredMethod(ClassFile file, Bytecode code, String declaringClass, String methodName, String[] parameterTypes)
       {
+         // get the correct class type to use to resolve the method
          invokeMethodHandler(file, code, TargetInstanceProxy.class.getName(), "getTargetClass", parameterTypes, "Ljava/lang/Class;", false, null);
          code.addCheckcast("java/lang/Class");
          // now we have the class on the stack

@@ -19,11 +19,18 @@ package org.jboss.weld.util.bytecode;
 import javassist.bytecode.Bytecode;
 import javassist.bytecode.Opcode;
 
+/**
+ * utility class for common bytecode operations
+ * 
+ * @author Stuart Douglas
+ * 
+ */
 public class BytecodeUtils
 {
 
    /**
-    * Push the this pointer and parameters onto the stack
+    * Push all parameters onto the stack, excluding the this pointer (variable
+    * 0). This is usually used to prepare for a method call on a delegate
     */
    public static int loadParameters(Bytecode b, String descriptor)
    {
@@ -31,7 +38,6 @@ public class BytecodeUtils
       // local variables is the number of parameters +1 for this
       // if some of the parameters are wide this may go up.
       int localVariableCount = params.length + 1;
-      b.addAload(0); // push this
       int variablePosition = 1; // stores the current position to load from
       for (int i = 0; i < params.length; ++i)
       {
@@ -50,6 +56,13 @@ public class BytecodeUtils
       return localVariableCount;
    }
 
+   /**
+    * Adds the correct load instruction based on the type descriptor
+    * 
+    * @param code the bytecode to add the instruction to
+    * @param type the type of the variable
+    * @param variable the variable number
+    */
    public static void addLoadInstruction(Bytecode code, String type, int variable)
    {
       char tp = type.charAt(0);
@@ -81,8 +94,12 @@ public class BytecodeUtils
    {
       addReturnInstruction(code, DescriptorUtils.classToStringRepresentation(type));
    }
+
    /**
-    * Adds a return instruction given a type in JVM format
+    * Adds a return instruction given a type in JVM format.
+    * 
+    * @param code the bytecode
+    * @param type the type descriptor for the type to return
     */
    public static void addReturnInstruction(Bytecode code, String type)
    {
@@ -115,8 +132,13 @@ public class BytecodeUtils
    }
 
    /**
-    * pushes a class type onto the stack from the string representation
+    * Pushes a class type onto the stack from the string representation This can
+    * also handle primitives
     * 
+    * @param b the bytecode
+    * @param classType the type descriptor for the class or primitive to push.
+    *           This will accept both the java.lang.Object form and the
+    *           Ljava/lang/Object; form
     */
    public static void pushClassType(Bytecode b, String classType)
    {

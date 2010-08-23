@@ -39,11 +39,26 @@ public class ConstructorUtils
    {
    }
 
+   /**
+    * adds a constructor that calls super()
+    */
    public static void addDefaultConstructor(ClassFile file, Bytecode initialValueBytecode)
    {
       addConstructor("()V", new String[0], file, initialValueBytecode);
    }
 
+   /**
+    * Adds a constructor that delegates to a super constructor with the same
+    * descriptor. The bytecode in inialValueBytecode will be executed at the
+    * start of the constructor and can be used to inialize fields to a default
+    * value. As the object is not properly constructed at this point this
+    * bytecode may not reference this (i.e. the variable at location 0)
+    * 
+    * @param descriptor the constructor descriptor
+    * @param exceptions any exceptions that are thrown
+    * @param file the classfile to add the constructor to
+    * @param initialValueBytecode bytecode that can be used to set inial values
+    */
    public static void addConstructor(String descriptor, String[] exceptions, ClassFile file, Bytecode initialValueBytecode)
    {
       try
@@ -61,6 +76,7 @@ public class ConstructorUtils
          // to do this we need to push all the arguments on the stack first
          // local variables is the number of parameters +1 for this
          // if some of the parameters are wide this may go up.
+         b.add(Opcode.ALOAD_0);
          int localVariableCount = BytecodeUtils.loadParameters(b, descriptor);
          // now we have the parameters on the stack
          b.addInvokespecial(file.getSuperclass(), "<init>", descriptor);

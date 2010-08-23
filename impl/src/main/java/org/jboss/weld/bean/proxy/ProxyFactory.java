@@ -71,6 +71,7 @@ import org.slf4j.cal10n.LocLogger;
  * a {@link BeanInstance}. All proxies implement the {@link Proxy} interface.
  * 
  * @author David Allen
+ * @author Stuart Douglas
  */
 public class ProxyFactory<T>
 {
@@ -403,7 +404,7 @@ public class ProxyFactory<T>
          // replacement object and the subsequent call get the proxy object.
          Class<?>[] exceptions = new Class[] { ObjectStreamException.class };
          Bytecode writeReplaceBody = createWriteReplaceBody(proxyClassType);
-         proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, Object.class, "writeReplace", new Class[] {}, exceptions, writeReplaceBody, proxyClassType));
+         proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, Object.class, "writeReplace", new Class[] {}, exceptions, writeReplaceBody, proxyClassType.getConstPool()));
 
          // Also add a static method that can be used to deserialize a proxy
          // object.
@@ -411,7 +412,7 @@ public class ProxyFactory<T>
          // class.
          exceptions = new Class[] { ClassNotFoundException.class, IOException.class };
          Bytecode deserializeProxyBody = createDeserializeProxyBody(proxyClassType);
-         proxyClassType.addMethod(MethodUtils.makeMethod(Modifier.STATIC | Modifier.PUBLIC, Object.class, "deserializeProxy", new Class[] { ObjectInputStream.class }, exceptions, deserializeProxyBody, proxyClassType));
+         proxyClassType.addMethod(MethodUtils.makeMethod(Modifier.STATIC | Modifier.PUBLIC, Object.class, "deserializeProxy", new Class[] { ObjectInputStream.class }, exceptions, deserializeProxyBody, proxyClassType.getConstPool()));
       }
       catch (Exception e)
       {
@@ -508,7 +509,7 @@ public class ProxyFactory<T>
                {
                   try
                   {
-                     proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, method.getReturnType(), method.getName(), method.getParameterTypes(), method.getExceptionTypes(), createInterceptorBody(proxyClassType, method), proxyClassType));
+                     proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, method.getReturnType(), method.getName(), method.getParameterTypes(), method.getExceptionTypes(), createInterceptorBody(proxyClassType, method), proxyClassType.getConstPool()));
                      log.trace("Adding method " + method);
                   }
                   catch (DuplicateMemberException e)
@@ -526,7 +527,7 @@ public class ProxyFactory<T>
             {
                try
                {
-                  proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, method.getReturnType(), method.getName(), method.getParameterTypes(), method.getExceptionTypes(), createInterceptorBody(proxyClassType, method), proxyClassType));
+                  proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, method.getReturnType(), method.getName(), method.getParameterTypes(), method.getExceptionTypes(), createInterceptorBody(proxyClassType, method), proxyClassType.getConstPool()));
                   log.trace("Adding method " + method);
                }
                catch (DuplicateMemberException e)
@@ -736,14 +737,14 @@ public class ProxyFactory<T>
          for (Method method : LifecycleMixin.class.getDeclaredMethods())
          {
             log.trace("Adding method " + method);
-            proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, method.getReturnType(), method.getName(), method.getParameterTypes(), method.getExceptionTypes(), createInterceptorBody(proxyClassType, method), proxyClassType));
+            proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, method.getReturnType(), method.getName(), method.getParameterTypes(), method.getExceptionTypes(), createInterceptorBody(proxyClassType, method), proxyClassType.getConstPool()));
          }
          Method getInstanceMethod = TargetInstanceProxy.class.getDeclaredMethod("getTargetInstance");
          Method getInstanceClassMethod = TargetInstanceProxy.class.getDeclaredMethod("getTargetClass");
-         proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, getInstanceMethod.getReturnType(), getInstanceMethod.getName(), getInstanceMethod.getParameterTypes(), getInstanceMethod.getExceptionTypes(), createInterceptorBody(proxyClassType, getInstanceMethod), proxyClassType));
-         proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, getInstanceClassMethod.getReturnType(), getInstanceClassMethod.getName(), getInstanceClassMethod.getParameterTypes(), getInstanceClassMethod.getExceptionTypes(), createInterceptorBody(proxyClassType, getInstanceClassMethod), proxyClassType));
+         proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, getInstanceMethod.getReturnType(), getInstanceMethod.getName(), getInstanceMethod.getParameterTypes(), getInstanceMethod.getExceptionTypes(), createInterceptorBody(proxyClassType, getInstanceMethod), proxyClassType.getConstPool()));
+         proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, getInstanceClassMethod.getReturnType(), getInstanceClassMethod.getName(), getInstanceClassMethod.getParameterTypes(), getInstanceClassMethod.getExceptionTypes(), createInterceptorBody(proxyClassType, getInstanceClassMethod), proxyClassType.getConstPool()));
          Method setMethodHandlerMethod = ProxyObject.class.getDeclaredMethod("setHandler", MethodHandler.class);
-         proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, setMethodHandlerMethod.getReturnType(), setMethodHandlerMethod.getName(), setMethodHandlerMethod.getParameterTypes(), setMethodHandlerMethod.getExceptionTypes(), generateSetMethodHandlerBody(proxyClassType), proxyClassType));
+         proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, setMethodHandlerMethod.getReturnType(), setMethodHandlerMethod.getName(), setMethodHandlerMethod.getParameterTypes(), setMethodHandlerMethod.getExceptionTypes(), generateSetMethodHandlerBody(proxyClassType), proxyClassType.getConstPool()));
       }
       catch (Exception e)
       {

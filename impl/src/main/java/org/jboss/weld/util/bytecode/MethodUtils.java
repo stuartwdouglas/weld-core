@@ -21,14 +21,40 @@ import java.lang.reflect.Modifier;
 
 import javassist.bytecode.BadBytecode;
 import javassist.bytecode.Bytecode;
-import javassist.bytecode.ClassFile;
 import javassist.bytecode.CodeAttribute;
+import javassist.bytecode.ConstPool;
 import javassist.bytecode.ExceptionsAttribute;
 import javassist.bytecode.MethodInfo;
 
+/**
+ * Utility class for working with methods
+ * 
+ * @author Stuart Douglas
+ * 
+ */
 public class MethodUtils
 {
-   public static MethodInfo makeMethod(int modifiers, Class<?> returnType, String mname, Class<?>[] parameters, Class<?>[] exceptions, Bytecode body, ClassFile file)
+
+   private MethodUtils()
+   {
+
+   }
+
+   /**
+    * Creates a MethodInfo from the given information. This method must be added
+    * to the ClassFile manually
+    * 
+    * @param modifiers the method modifiers
+    * @param returnType the return type
+    * @param mname the method name
+    * @param parameters the methods parameter types
+    * @param exceptions chacked exceptions thrown by the method
+    * @param body the method bytecode. This must have the correct value for
+    *           maxLocals already set
+    * @param pool the const pool
+    * @return the created method
+    */
+   public static MethodInfo makeMethod(int modifiers, Class<?> returnType, String mname, Class<?>[] parameters, Class<?>[] exceptions, Bytecode body, ConstPool pool)
    {
       StringBuilder desc = new StringBuilder("(");
       if (parameters != null)
@@ -40,14 +66,14 @@ public class MethodUtils
       }
       desc.append(")");
       desc.append(DescriptorUtils.classToStringRepresentation(returnType));
-      MethodInfo meth = new MethodInfo(file.getConstPool(), mname, desc.toString());
+      MethodInfo meth = new MethodInfo(pool, mname, desc.toString());
       meth.setAccessFlags(modifiers);
       String[] ex = new String[exceptions.length];
       for (int i = 0; i < exceptions.length; ++i)
       {
          ex[i] = exceptions[i].getName().replace('.', '/');
       }
-      ExceptionsAttribute exAt = new ExceptionsAttribute(file.getConstPool());
+      ExceptionsAttribute exAt = new ExceptionsAttribute(pool);
       exAt.setExceptions(ex);
       meth.setExceptionsAttribute(exAt);
       CodeAttribute ca = body.toCodeAttribute();
@@ -64,9 +90,9 @@ public class MethodUtils
    }
 
    /**
-    * Calculates maxLocals required to hold all paramters and this
+    * Calculates maxLocals required to hold all parameters and this, assuming
+    * that user code does not require any extra variables
     * 
-    * @return
     */
    public static int calculateMaxLocals(Method method)
    {

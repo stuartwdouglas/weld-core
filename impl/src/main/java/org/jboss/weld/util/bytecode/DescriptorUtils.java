@@ -44,7 +44,7 @@ public class DescriptorUtils
    /**
     * returns an array of String representations of the parameter types.
     * Primitives are returned as their native representations, while clases are
-    * returned in the internal form e.g. Ljava/lang/Integer;
+    * returned in the internal descriptor form e.g. Ljava/lang/Integer;
     */
    public static String[] descriptorStringToParameterArray(String methodDescriptor)
    {
@@ -89,7 +89,6 @@ public class DescriptorUtils
                else
                {
                   type = methodDescriptor.substring(arraystart, i + 1);
-
                }
             }
             arraystart = -1;
@@ -154,6 +153,9 @@ public class DescriptorUtils
       }
    }
 
+   /**
+    * returns true if the descriptor represents a primitive type
+    */
    public static boolean isPrimitive(String descriptor)
    {
       if (descriptor.length() == 1)
@@ -163,6 +165,10 @@ public class DescriptorUtils
       return false;
    }
 
+   /**
+    * returns true if the descriptor represents a long or a double
+    * 
+    */
    public static boolean isWide(String descriptor)
    {
       if (!isPrimitive(descriptor))
@@ -175,6 +181,15 @@ public class DescriptorUtils
          return true;
       }
       return false;
+   }
+
+   /**
+    * returns true if the class represents a long or a double
+    * 
+    */
+   public static boolean isWide(Class<?> cls)
+   {
+      return cls == double.class || cls == long.class;
    }
 
    public static String getConstructorDescriptor(Constructor<?> c)
