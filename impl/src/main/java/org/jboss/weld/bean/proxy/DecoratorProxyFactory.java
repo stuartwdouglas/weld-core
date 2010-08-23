@@ -257,9 +257,9 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
 
    }
 
-   protected static class TargetInstanceBytecodeMethodResolver extends ProxyFactory.BytecodeMethodResolver
+   protected static class TargetInstanceBytecodeMethodResolver implements ProxyFactory.BytecodeMethodResolver
    {
-      void getDeclaredMethod(ClassFile file, Bytecode code, String declaringClass, String methodName, String[] parameterTypes)
+      public void getDeclaredMethod(ClassFile file, Bytecode code, String declaringClass, String methodName, String[] parameterTypes)
       {
          // get the correct class type to use to resolve the method
          invokeMethodHandler(file, code, TargetInstanceProxy.class.getName(), "getTargetClass", parameterTypes, "Ljava/lang/Class;", false, null);

@@ -34,8 +34,6 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-import javassist.CtClass;
-import javassist.CtMethod;
 import javassist.NotFoundException;
 import javassist.bytecode.AccessFlag;
 import javassist.bytecode.Bytecode;
@@ -434,19 +432,33 @@ public class ProxyFactory<T>
       return b;
    }
 
+   /**
+    * creates serialization code. In java this code looks like:
+    * 
+    * <pre>
+    *  if (firstSerializationPhaseComplete) {
+    *   firstSerializationPhaseComplete = false;\n");
+    *   return $0;
+    *  } else {
+    *    firstSerializationPhaseComplete = true;
+    *    return methodHandler.invoke($0,$proxyClassTypeName.class.getMethod("writeReplace", null), null, $args);
+    *  }
+    * }
+    * </pre>
+    */
    private Bytecode createWriteReplaceBody(ClassFile proxyClassType)
    {
       // we need to build up the conditional body first
       // this bytecode is run if firstSerializationPhaseComplete=true
-      Bytecode runFirstPhase = new Bytecode(proxyClassType.getConstPool());
+      Bytecode runSecondPhase = new Bytecode(proxyClassType.getConstPool());
       // set firstSerializationPhaseComplete=false
-      runFirstPhase.add(Opcode.ALOAD_0);
-      runFirstPhase.add(Opcode.ICONST_0);
-      runFirstPhase.addPutfield(proxyClassType.getName(), FIRST_SERIALIZATION_PHASE_COMPLETE_FIELD_NAME, "Z");
+      runSecondPhase.add(Opcode.ALOAD_0);
+      runSecondPhase.add(Opcode.ICONST_0);
+      runSecondPhase.addPutfield(proxyClassType.getName(), FIRST_SERIALIZATION_PHASE_COMPLETE_FIELD_NAME, "Z");
       // return this
-      runFirstPhase.add(Opcode.ALOAD_0);
-      runFirstPhase.add(Opcode.ARETURN);
-      byte[] runFirstBytes = runFirstPhase.get();
+      runSecondPhase.add(Opcode.ALOAD_0);
+      runSecondPhase.add(Opcode.ARETURN);
+      byte[] runFirstBytes = runSecondPhase.get();
       Bytecode b = new Bytecode(proxyClassType.getConstPool());
       b.add(Opcode.ICONST_0);
       b.add(Opcode.ALOAD_0);
@@ -478,20 +490,6 @@ public class ProxyFactory<T>
       b.add(Opcode.ARETURN);
       b.setMaxLocals(1);
       return b;
-      /*
-       * 
-       * StringBuilder bodyString = new StringBuilder();
-       * bodyString.append("{\n");
-       * bodyString.append(" if (firstSerializationPhaseComplete) {\n");
-       * bodyString.append("    firstSerializationPhaseComplete = false;\n");
-       * bodyString.append("    return $0;\n");
-       * bodyString.append(" } else {\n");
-       * bodyString.append("    firstSerializationPhaseComplete = true;\n");
-       * bodyString.append("    return methodHandler.invoke($0,");
-       * bodyString.append(proxyClassType.getName());bodyString.append(
-       * ".class.getMethod(\"writeReplace\", null), null, $args);\n");
-       * bodyString.append(" }\n}"); return bodyString.toString();
-       */
    }
 
    protected void addMethodsFromClass(ClassFile proxyClassType)
@@ -564,15 +562,6 @@ public class ProxyFactory<T>
       }
       invokeMethodHandler(file, b, method.getDeclaringClass().getName(), method.getName(), ptypes, DescriptorUtils.classToStringRepresentation(method.getReturnType()), true, null);
       return b;
-
-      // TODO: need to ask David Allen about this
-      /*
-       * if (Modifier.isPublic(method.getModifiers())) {
-       * bodyString.append(".class.getMethod(\"");
-       * log.trace("Using getMethod in proxy for method " + method); } else {
-       * bodyString.append(".class.getDeclaredMethod(\"");
-       * log.trace("Using getDeclaredMethod in proxy for method " + method); }
-       */
    }
 
    /**
@@ -687,43 +676,6 @@ public class ProxyFactory<T>
    }
 
    /**
-    * Produces the code for the list of argument types for the given method.
-    * 
-    * @param method the method for which to produce the parameter list
-    * @return a string of comma-delimited class objects
-    * @throws NotFoundException if any of the parameter types are not found by
-    *            Javassist
-    */
-   protected String getSignatureClasses(CtMethod method) throws NotFoundException
-   {
-      if (method.getParameterTypes().length > 0)
-      {
-         StringBuilder signatureBuffer = new StringBuilder();
-         signatureBuffer.append("new Class[]{");
-         boolean firstClass = true;
-         for (CtClass clazz : method.getParameterTypes())
-         {
-            if (firstClass)
-            {
-               firstClass = false;
-            }
-            else
-            {
-               signatureBuffer.append(", ");
-            }
-            signatureBuffer.append(clazz.getName());
-            signatureBuffer.append(".class");
-         }
-         signatureBuffer.append('}');
-         return signatureBuffer.toString();
-      }
-      else
-      {
-         return "null";
-      }
-   }
-
-   /**
     * Adds methods requiring special implementations rather than just
     * delegation.
     * 
@@ -806,7 +758,7 @@ public class ProxyFactory<T>
       return beanType;
    }
 
-   static protected abstract class BytecodeMethodResolver
+   static protected interface BytecodeMethodResolver
    {
       abstract void getDeclaredMethod(ClassFile file, Bytecode code, String declaringClass, String methodName, String[] parameterTypes);
    }
