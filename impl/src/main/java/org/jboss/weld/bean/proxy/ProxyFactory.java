@@ -458,17 +458,17 @@ public class ProxyFactory<T>
       // return this
       runSecondPhase.add(Opcode.ALOAD_0);
       runSecondPhase.add(Opcode.ARETURN);
-      byte[] runFirstBytes = runSecondPhase.get();
+      byte[] runSecondBytes = runSecondPhase.get();
       Bytecode b = new Bytecode(proxyClassType.getConstPool());
       b.add(Opcode.ICONST_0);
       b.add(Opcode.ALOAD_0);
       b.addGetfield(proxyClassType.getName(), FIRST_SERIALIZATION_PHASE_COMPLETE_FIELD_NAME, "Z");
       b.add(Opcode.IF_ICMPEQ);
       // +3 because the IF_ICMPNE sequence is 3 bytes long
-      BytecodeUtils.add16bit(b, runFirstBytes.length + 3);
-      for (int i = 0; i < runFirstBytes.length; ++i)
+      BytecodeUtils.add16bit(b, runSecondBytes.length + 3);
+      for (int i = 0; i < runSecondBytes.length; ++i)
       {
-         b.add(runFirstBytes[i]);
+         b.add(runSecondBytes[i]);
       }
       // now create the rest of the bytecode
       // set firstSerializationPhaseComplete=true
