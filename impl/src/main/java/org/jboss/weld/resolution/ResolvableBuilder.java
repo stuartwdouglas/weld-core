@@ -289,7 +289,7 @@ public class ResolvableBuilder
          if (o instanceof ResolvableImpl)
          {
             Resolvable r = (Resolvable) o;
-            return this.getTypes().equals(r.getTypes()) && this.getQualifiers().equals(r.getQualifiers());
+            return this.getClass().equals(r.getClass()) && this.getTypes().equals(r.getTypes()) && this.getQualifiers().equals(r.getQualifiers());
          }
          return false;
       }
