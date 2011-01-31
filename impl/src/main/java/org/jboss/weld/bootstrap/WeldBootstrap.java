@@ -33,8 +33,8 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.enterprise.context.spi.Context;
@@ -94,6 +94,8 @@ import org.jboss.weld.injection.CurrentInjectionPoint;
 import org.jboss.weld.logging.messages.VersionMessage;
 import org.jboss.weld.manager.BeanManagerImpl;
 import org.jboss.weld.manager.InjectionTargetValidator;
+import org.jboss.weld.manager.SingleThreadExecutorServices;
+import org.jboss.weld.manager.api.ExecutorServices;
 import org.jboss.weld.metadata.TypeStore;
 import org.jboss.weld.metadata.cache.MetaAnnotationStore;
 import org.jboss.weld.resources.ClassTransformer;
@@ -246,6 +248,10 @@ public class WeldBootstrap implements Bootstrap
          if (!deployment.getServices().contains(ProxyServices.class))
          {
             deployment.getServices().add(ProxyServices.class, new SimpleProxyServices());
+         }
+         if (!deployment.getServices().contains(ExecutorServices.class))
+         {
+            deployment.getServices().add(ExecutorServices.class, new SingleThreadExecutorServices());
          }
 
          verifyServices(deployment.getServices(), environment.getRequiredDeploymentServices());

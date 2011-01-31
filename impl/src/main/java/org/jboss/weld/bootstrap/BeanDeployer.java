@@ -16,8 +16,25 @@
  */
 package org.jboss.weld.bootstrap;
 
+
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+
+import static org.jboss.weld.logging.LoggerFactory.loggerFactory;
+import static org.jboss.weld.logging.messages.BootstrapMessage.BEAN_IS_BOTH_INTERCEPTOR_AND_DECORATOR;
+import static org.jboss.weld.logging.messages.BootstrapMessage.IGNORING_CLASS_DUE_TO_LOADING_ERROR;
+import static org.slf4j.ext.XLogger.Level.DEBUG;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+
+import javax.decorator.Decorator;
+import javax.enterprise.inject.spi.AnnotatedType;
+import javax.interceptor.Interceptor;
+
 import org.jboss.weld.Container;
 import org.jboss.weld.bootstrap.api.ServiceRegistry;
 import org.jboss.weld.bootstrap.events.ProcessAnnotatedTypeImpl;
@@ -28,6 +45,7 @@ import org.jboss.weld.introspector.DiscoveredExternalAnnotatedType;
 import org.jboss.weld.introspector.WeldClass;
 import org.jboss.weld.logging.Category;
 import org.jboss.weld.manager.BeanManagerImpl;
+import org.jboss.weld.manager.api.ExecutorServices;
 import org.jboss.weld.resources.ClassTransformer;
 import org.jboss.weld.resources.spi.ResourceLoader;
 import org.jboss.weld.resources.spi.ResourceLoadingException;
@@ -35,16 +53,6 @@ import org.jboss.weld.util.reflection.Reflections;
 import org.slf4j.cal10n.LocLogger;
 import org.slf4j.ext.XLogger;
 
-import javax.decorator.Decorator;
-import javax.enterprise.inject.spi.AnnotatedType;
-import javax.interceptor.Interceptor;
-import java.util.HashSet;
-import java.util.Set;
-
-import static org.jboss.weld.logging.LoggerFactory.loggerFactory;
-import static org.jboss.weld.logging.messages.BootstrapMessage.BEAN_IS_BOTH_INTERCEPTOR_AND_DECORATOR;
-import static org.jboss.weld.logging.messages.BootstrapMessage.IGNORING_CLASS_DUE_TO_LOADING_ERROR;
-import static org.slf4j.ext.XLogger.Level.DEBUG;
 
 /**
  * @author pmuir
@@ -53,11 +61,14 @@ import static org.slf4j.ext.XLogger.Level.DEBUG;
 public class BeanDeployer extends AbstractBeanDeployer<BeanDeployerEnvironment>
 {
    
+
    private transient LocLogger log = loggerFactory().getLogger(Category.CLASS_LOADING);
    private transient XLogger xlog = loggerFactory().getXLogger(Category.CLASS_LOADING);
    
-   private final Set<WeldClass<?>> classes;
+   private final Collection<WeldClass<?>> classes;
    private final Set<Class<?>> vetoedClasses;
+
+
    private final ResourceLoader resourceLoader;
    private final ClassTransformer classTransformer;
 
@@ -68,8 +79,9 @@ public class BeanDeployer extends AbstractBeanDeployer<BeanDeployerEnvironment>
    public BeanDeployer(BeanManagerImpl manager, EjbDescriptors ejbDescriptors, ServiceRegistry services)
    {
       super(manager, services, new BeanDeployerEnvironment(ejbDescriptors, manager));
-      this.classes = new HashSet<WeldClass<?>>();
-      this.vetoedClasses = new HashSet<Class<?>>();
+
+      this.vetoedClasses = Collections.synchronizedSet(new HashSet<Class<?>>());
+      this.classes = new ConcurrentLinkedQueue<WeldClass<?>>();
       this.resourceLoader = manager.getServices().get(ResourceLoader.class);
       this.classTransformer = Container.instance().services().get(ClassTransformer.class);
    }
@@ -102,7 +114,11 @@ public class BeanDeployer extends AbstractBeanDeployer<BeanDeployerEnvironment>
          
          if (weldClass != null)
          {
-            ProcessAnnotatedTypeImpl<?> event = ProcessAnnotatedTypeImpl.fire(getManager(), weldClass);
+            ProcessAnnotatedTypeImpl<?> event;
+            synchronized (this)
+            {
+               event = ProcessAnnotatedTypeImpl.fire(getManager(), weldClass);
+            }
             if (!event.isVeto())
             {
                if (event.getAnnotatedType() instanceof WeldClass<?>)
@@ -120,18 +136,41 @@ public class BeanDeployer extends AbstractBeanDeployer<BeanDeployerEnvironment>
       }
       return this;
    }
-   
+
    public BeanDeployer addClass(AnnotatedType<?> clazz)
    {
       classes.add(classTransformer.loadClass(clazz));
       return this;
    }
 
-   public BeanDeployer addClasses(Iterable<String> classes)
+   public BeanDeployer addClasses(Iterable<String> classes, ExecutorServices executorServiceFactory)
    {
-      for (String className : classes)
+      ExecutorService executorService = executorServiceFactory.getTaskExecutor();
+      List<Future<?>> futures = new LinkedList<Future<?>>();
+      for (final String className : classes)
       {
-         addClass(className);
+         futures.add(executorService.submit(new Runnable()
+         {
+            public void run()
+            {
+               addClass(className);
+            }
+         }));
+      }
+      for (Future<?> future : futures)
+      {
+         try
+         {
+            future.get();
+         }
+         catch (InterruptedException e)
+         {
+            throw new RuntimeException(e);
+         }
+         catch (ExecutionException e)
+         {
+            throw new RuntimeException(e.getCause());
+         }
       }
       return this;
    }

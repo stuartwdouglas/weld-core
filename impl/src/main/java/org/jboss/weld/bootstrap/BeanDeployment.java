@@ -56,6 +56,7 @@ import org.jboss.weld.jsf.JsfApiAbstraction;
 import org.jboss.weld.manager.BeanManagerImpl;
 import org.jboss.weld.manager.Enabled;
 import org.jboss.weld.manager.InjectionTargetValidator;
+import org.jboss.weld.manager.api.ExecutorServices;
 import org.jboss.weld.metadata.FilterPredicate;
 import org.jboss.weld.metadata.ScanningPredicate;
 import org.jboss.weld.persistence.PersistenceApiAbstraction;
@@ -78,12 +79,12 @@ public class BeanDeployment
 {
 
    private static final LocLogger log = loggerFactory().getLogger(BOOTSTRAP);
-   
+
    private final BeanDeploymentArchive beanDeploymentArchive;
    private final BeanManagerImpl beanManager;
    private final BeanDeployer beanDeployer;
    private final Collection<ContextHolder<? extends Context>> contexts;
-   
+
    public BeanDeployment(BeanDeploymentArchive beanDeploymentArchive, BeanManagerImpl deploymentManager, ServiceRegistry deploymentServices, Collection<ContextHolder<? extends Context>> contexts)
    {
       this.beanDeploymentArchive = beanDeploymentArchive;
@@ -188,7 +189,7 @@ public class BeanDeployment
    // TODO -- OK?
    public void createBeans(Environment environment)
    {
-      beanDeployer.addClasses(loadClasses());
+      beanDeployer.addClasses(loadClasses(), beanManager.getServices().get(ExecutorServices.class));
       beanDeployer.getEnvironment().addBuiltInBean(new InjectionPointBean(beanManager));
       beanDeployer.getEnvironment().addBuiltInBean(new EventBean(beanManager));
       beanDeployer.getEnvironment().addBuiltInBean(new InstanceBean(beanManager));
