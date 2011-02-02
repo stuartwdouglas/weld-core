@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -26,7 +26,7 @@ import javax.enterprise.context.spi.CreationalContext;
 import org.jboss.weld.bean.builtin.AbstractBuiltInBean;
 import org.jboss.weld.bean.builtin.CallableMethodHandler;
 import org.jboss.weld.bean.proxy.EnterpriseTargetBeanInstance;
-import org.jboss.weld.bean.proxy.ProxyFactory;
+import org.jboss.weld.bean.proxy.ProxyFactoryImpl;
 import org.jboss.weld.manager.BeanManagerImpl;
 
 public abstract class AbstractEEBean<T> extends AbstractBuiltInBean<T>
@@ -43,7 +43,7 @@ public abstract class AbstractEEBean<T> extends AbstractBuiltInBean<T>
       this.types = new HashSet<Type>();
       this.types.add(Object.class);
       this.types.add(type);
-      this.proxy = new ProxyFactory<T>(type, types, this).create(new EnterpriseTargetBeanInstance(type, new CallableMethodHandler(callable)));
+      this.proxy = new ProxyFactoryImpl<T>(type, this).create(new EnterpriseTargetBeanInstance(type, new CallableMethodHandler(callable)));
    }
 
    public T create(CreationalContext<T> creationalContext)

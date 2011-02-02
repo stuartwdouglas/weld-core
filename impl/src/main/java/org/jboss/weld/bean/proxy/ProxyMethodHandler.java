@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -41,7 +41,7 @@ import org.slf4j.cal10n.LocLogger;
  * {@link BeanInstance} associated with this proxy or handler.
  * 
  * @author David Allen
- *
+ * 
  */
 public class ProxyMethodHandler implements MethodHandler, Serializable
 {
@@ -122,7 +122,7 @@ public class ProxyMethodHandler implements MethodHandler, Serializable
             throw new WeldException(BEAN_INSTANCE_NOT_SET_ON_PROXY);
          }
          Object instance = beanInstance.getInstance();
-         Object result = beanInstance.invoke(instance, thisMethod, args);
+         Object result = beanInstance.invoke(instance, proceed, args);
          // if the method returns this return the proxy instead
          // to prevent the bean instance escaping
          if (result != null && result == instance)

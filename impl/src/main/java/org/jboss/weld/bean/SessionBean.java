@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -34,7 +34,6 @@ import static org.jboss.weld.util.reflection.Reflections.cast;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -46,7 +45,6 @@ import javax.decorator.Decorator;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.Dependent;
 import javax.enterprise.context.spi.CreationalContext;
-import javax.enterprise.event.Observes;
 import javax.enterprise.inject.Typed;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.enterprise.inject.spi.InjectionTarget;
@@ -61,7 +59,7 @@ import org.jboss.weld.bean.proxy.EnterpriseBeanProxyMethodHandler;
 import org.jboss.weld.bean.proxy.EnterpriseProxyFactory;
 import org.jboss.weld.bean.proxy.EnterpriseTargetBeanInstance;
 import org.jboss.weld.bean.proxy.Marker;
-import org.jboss.weld.bean.proxy.ProxyFactory;
+import org.jboss.weld.bean.proxy.ProxyFactoryImpl;
 import org.jboss.weld.bean.proxy.TargetBeanInstance;
 import org.jboss.weld.bootstrap.BeanDeployerEnvironment;
 import org.jboss.weld.bootstrap.api.ServiceRegistry;
@@ -90,9 +88,9 @@ import org.jboss.weld.util.reflection.SecureReflections;
 
 /**
  * An enterprise bean representation
- * 
+ *
  * @author Pete Muir
- * 
+ *
  * @param <T> The type (class) of the bean
  */
 public class SessionBean<T> extends AbstractClassBean<T>
@@ -107,7 +105,7 @@ public class SessionBean<T> extends AbstractClassBean<T>
 
    /**
     * Creates a simple, annotation defined Enterprise Web Bean
-    * 
+    *
     * @param <T> The type
     * @param clazz The class
     * @param beanManager the current manager
@@ -120,8 +118,9 @@ public class SessionBean<T> extends AbstractClassBean<T>
    }
 
    /**
-    * Creates a simple, annotation defined Enterprise Web Bean using the annotations specified on type
-    * 
+    * Creates a simple, annotation defined Enterprise Web Bean using the
+    * annotations specified on type
+    *
     * @param <T> The type
     * @param clazz The class
     * @param beanManager the current manager
@@ -149,10 +148,10 @@ public class SessionBean<T> extends AbstractClassBean<T>
          return new StringBuilder().append(beanType).append(BEAN_ID_SEPARATOR).append(ejbDescriptor.getEjbName()).append(AnnotatedTypes.createTypeId(type)).toString();
       }
    }
-   
+
    /**
     * Constructor
-    * 
+    *
     * @param type The type of the bean
     * @param manager The Bean manager
     */
@@ -189,12 +188,12 @@ public class SessionBean<T> extends AbstractClassBean<T>
             {
                new InjectionContextImpl<T>(getBeanManager(), this, getWeldAnnotated(), instance)
                {
-                  
+
                   public void proceed()
                   {
                      Beans.injectFieldsAndInitializers(instance, ctx, getBeanManager(), getInjectableFields(), getInitializerMethods());
                   }
-                  
+
                }.run();
             }
 
@@ -222,12 +221,12 @@ public class SessionBean<T> extends AbstractClassBean<T>
             {
                return SessionBean.this.createInstance(ctx);
             }
-            
+
          });
       }
    }
-   
-   protected T createInstance(CreationalContext<T> ctx) 
+
+   protected T createInstance(CreationalContext<T> ctx)
    {
       return getConstructor().newInstance(beanManager, ctx);
    }
@@ -236,7 +235,7 @@ public class SessionBean<T> extends AbstractClassBean<T>
    protected void initTypes()
    {
       Map<Class<?>, Type> types = new LinkedHashMap<Class<?>, Type>();
-      
+
       for (BusinessInterfaceDescriptor<?> businessInterfaceDescriptor : ejbDescriptor.getLocalBusinessInterfaces())
       {
          types.putAll(new HierarchyDiscovery(businessInterfaceDescriptor.getInterface()).getTypeMap());
@@ -316,13 +315,13 @@ public class SessionBean<T> extends AbstractClassBean<T>
       }
       else
       {
-         this.specializedBean = (SessionBean<?>) specializedBean; 
+         this.specializedBean = (SessionBean<?>) specializedBean;
       }
    }
 
    /**
     * Creates an instance of the bean
-    * 
+    *
     * @return The instance
     */
    public T create(final CreationalContext<T> creationalContext)
@@ -331,7 +330,7 @@ public class SessionBean<T> extends AbstractClassBean<T>
       {
          T instance = SecureReflections.newInstance(proxyClass);
          creationalContext.push(instance);
-         ProxyFactory.setBeanInstance(instance, new EnterpriseTargetBeanInstance(getWeldAnnotated().getJavaClass(), new EnterpriseBeanProxyMethodHandler<T>(SessionBean.this, creationalContext)), this);
+         ProxyFactoryImpl.setBeanInstance(instance, new EnterpriseTargetBeanInstance(getWeldAnnotated().getJavaClass(), new EnterpriseBeanProxyMethodHandler<T>(SessionBean.this, creationalContext)), this);
          if (hasDecorators())
          {
             instance = applyDecorators(instance, creationalContext, null);
@@ -350,7 +349,7 @@ public class SessionBean<T> extends AbstractClassBean<T>
       {
          throw new CreationException(EJB_NOT_FOUND, e, proxyClass);
       }
-      
+
    }
 
    @Override
@@ -359,7 +358,7 @@ public class SessionBean<T> extends AbstractClassBean<T>
       //for EJBs, we apply decorators through a proxy
       T proxy = null;
       TargetBeanInstance beanInstance = new TargetBeanInstance(this, instance);
-      ProxyFactory<T> proxyFactory = new ProxyFactory<T>(getType(), getTypes(), this);
+      ProxyFactoryImpl<T> proxyFactory = new ProxyFactoryImpl<T>(getType(), this);
       DecorationHelper<T> decorationHelper = new DecorationHelper<T>(beanInstance, this, proxyFactory.getProxyClass(), beanManager, getServices().get(ContextualStore.class), getDecorators());
 
       DecorationHelper.getHelperStack().push(decorationHelper);
@@ -398,7 +397,7 @@ public class SessionBean<T> extends AbstractClassBean<T>
          throw new DefinitionException(MESSAGE_DRIVEN_BEANS_CANNOT_BE_MANAGED, this);
       }
    }
-   
+
    @Override
    protected void checkType()
    {
@@ -407,13 +406,13 @@ public class SessionBean<T> extends AbstractClassBean<T>
          throw new DefinitionException(GENERIC_SESSION_BEAN_MUST_BE_DEPENDENT, this);
       }
    }
-   
+
    @Override
    public boolean isPassivationCapableBean()
    {
       return getEjbDescriptor().isStateful();
    }
-   
+
    @Override
    public boolean isPassivationCapableDependency()
    {
@@ -471,7 +470,7 @@ public class SessionBean<T> extends AbstractClassBean<T>
          }
       }
    }
-   
+
    public SessionObjectReference createReference()
    {
       return beanManager.getServices().get(EjbServices.class).resolveEjb(getEjbDescriptor().delegate());
@@ -497,7 +496,7 @@ public class SessionBean<T> extends AbstractClassBean<T>
          getBeanManager().getServices().get(EjbServices.class).registerInterceptors(getEjbDescriptor().delegate(), new InterceptorBindingsAdapter(model));
       }
    }
-   
+
    @Override
    public String toString()
    {

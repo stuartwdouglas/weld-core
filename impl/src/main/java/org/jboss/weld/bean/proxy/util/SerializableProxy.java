@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -19,7 +19,6 @@ package org.jboss.weld.bean.proxy.util;
 
 import static org.jboss.weld.logging.messages.BeanMessage.BEAN_NOT_PASIVATION_CAPABLE_IN_SERIALIZATION;
 import static org.jboss.weld.logging.messages.BeanMessage.PROXY_DESERIALIZATION_FAILURE;
-import static org.jboss.weld.logging.messages.BeanMessage.PROXY_REQUIRED;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -32,8 +31,7 @@ import javax.enterprise.inject.spi.PassivationCapable;
 
 import org.jboss.weld.Container;
 import org.jboss.weld.bean.proxy.ClientProxyFactory;
-import org.jboss.weld.bean.proxy.ProxyFactory;
-import org.jboss.weld.exceptions.IllegalStateException;
+import org.jboss.weld.bean.proxy.ProxyFactoryImpl;
 import org.jboss.weld.exceptions.WeldException;
 import org.jboss.weld.serialization.spi.ContextualStore;
 
@@ -61,10 +59,6 @@ public class SerializableProxy implements Serializable
 
    public SerializableProxy(Object proxyObject, Bean<?> bean)
    {
-      if (!ProxyFactory.isProxy(proxyObject))
-      {
-         throw new IllegalStateException(PROXY_REQUIRED);
-      }
       if (bean instanceof PassivationCapable)
       {
          beanId = ((PassivationCapable) bean).getId();
@@ -112,7 +106,7 @@ public class SerializableProxy implements Serializable
       {
          // All other proxy classes always exist where a Weld container was
          // deployed
-         Class<?> proxyClass = ProxyFactory.resolveClassLoaderForBeanProxy(bean).loadClass(proxyClassName);
+         Class<?> proxyClass = ProxyFactoryImpl.resolveClassLoaderForBeanProxy(bean).loadClass(proxyClassName);
          try
          {
             proxyObject = proxyClass.getDeclaredMethod("deserializeProxy", ObjectInputStream.class).invoke(null, in);
@@ -123,7 +117,6 @@ public class SerializableProxy implements Serializable
          }
       }
    }
-
 
    /**
     * Always returns the original proxy object that was serialized.

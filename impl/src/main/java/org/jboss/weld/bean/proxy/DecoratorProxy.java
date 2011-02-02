@@ -17,6 +17,7 @@
 
 package org.jboss.weld.bean.proxy;
 
+
 /**
  * Marker interface to identify Decorator proxies
  * 
@@ -25,5 +26,5 @@ package org.jboss.weld.bean.proxy;
  */
 public interface DecoratorProxy
 {
-
+   public void _initMH(Object object);
 }

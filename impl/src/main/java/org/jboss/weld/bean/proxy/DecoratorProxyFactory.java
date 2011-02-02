@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -18,32 +18,26 @@
 package org.jboss.weld.bean.proxy;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.lang.reflect.Type;
-import java.util.Collections;
-import java.util.Set;
 
 import javassist.NotFoundException;
-import javassist.bytecode.AccessFlag;
-import javassist.bytecode.Bytecode;
-import javassist.bytecode.ClassFile;
-import javassist.bytecode.Opcode;
-import javassist.util.proxy.MethodHandler;
 
 import javax.enterprise.inject.spi.Bean;
 
+import org.jboss.classfilewriter.ClassMethod;
+import org.jboss.classfilewriter.code.CodeAttribute;
+import org.jboss.classfilewriter.util.Boxing;
+import org.jboss.interceptor.proxy.LifecycleMixin;
 import org.jboss.interceptor.util.proxy.TargetInstanceProxy;
+import org.jboss.invocation.proxy.MethodBodyCreator;
+import org.jboss.invocation.proxy.ProxyFactory;
 import org.jboss.weld.exceptions.WeldException;
 import org.jboss.weld.injection.FieldInjectionPoint;
 import org.jboss.weld.injection.ParameterInjectionPoint;
 import org.jboss.weld.injection.WeldInjectionPoint;
-import org.jboss.weld.util.bytecode.BytecodeUtils;
 import org.jboss.weld.util.bytecode.DescriptorUtils;
-import org.jboss.weld.util.bytecode.MethodInformation;
-import org.jboss.weld.util.bytecode.MethodUtils;
-import org.jboss.weld.util.bytecode.RuntimeMethodInformation;
-import org.jboss.weld.util.bytecode.StaticMethodInformation;
 
 /**
  * This special proxy factory is mostly used for abstract decorators. When a
@@ -54,7 +48,7 @@ import org.jboss.weld.util.bytecode.StaticMethodInformation;
  * @author David Allen
  * @author Stuart Douglas
  */
-public class DecoratorProxyFactory<T> extends ProxyFactory<T>
+public class DecoratorProxyFactory<T> extends ProxyFactoryImpl<T>
 {
    public static final String PROXY_SUFFIX = "DecoratorProxy";
    private final WeldInjectionPoint<?, ?> delegateInjectionPoint;
@@ -62,7 +56,7 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
 
    public DecoratorProxyFactory(Class<T> proxyType, WeldInjectionPoint<?, ?> delegateInjectionPoint, Bean<?> bean)
    {
-      super(proxyType, Collections.<Type>emptySet(), bean);
+      super(proxyType, bean);
       this.delegateInjectionPoint = delegateInjectionPoint;
       if (delegateInjectionPoint instanceof FieldInjectionPoint<?, ?>)
       {
@@ -74,16 +68,18 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
       }
    }
 
-   private void addHandlerInitializerMethod(ClassFile proxyClassType) throws Exception
+   protected void generateClass()
    {
-      StaticMethodInformation methodInfo = new StaticMethodInformation("_initMH", new Class[] { Object.class }, void.class, proxyClassType.getName());
-      proxyClassType.addMethod(MethodUtils.makeMethod(Modifier.PRIVATE, methodInfo, new Class[] {}, createMethodHandlerInitializerBody(proxyClassType), proxyClassType.getConstPool()));
-   }
+      addInterface(super.getDefaultMethodOverride(), LifecycleMixin.class);
+      addInterface(super.getDefaultMethodOverride(), TargetInstanceProxy.class);
+      addInterface(new MethodHandlerInitializerBodyCreator(), DecoratorProxy.class);
+      super.generateClass();
+   };
 
    @Override
-   protected void addAdditionalInterfaces(Set<Class<?>> interfaces)
+   public MethodBodyCreator getDefaultMethodOverride()
    {
-      interfaces.add(DecoratorProxy.class);
+      return new DecoratorProxyBodyCreator();
    }
 
    /**
@@ -91,123 +87,225 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
     * methodHandler field as then new methodHandler
     * 
     */
-   private Bytecode createMethodHandlerInitializerBody(ClassFile proxyClassType)
+   class MethodHandlerInitializerBodyCreator implements MethodBodyCreator
    {
-      Bytecode b = new Bytecode(proxyClassType.getConstPool(), 1, 2);
-      b.add(Opcode.ALOAD_0);
-      StaticMethodInformation methodInfo = new StaticMethodInformation("_initMH", new Class[] { Object.class }, void.class, proxyClassType.getName());
-      invokeMethodHandler(proxyClassType, b, methodInfo, false, DEFAULT_METHOD_RESOLVER);
-      b.addCheckcast("javassist/util/proxy/MethodHandler");
-      b.addPutfield(proxyClassType.getName(), "methodHandler", DescriptorUtils.classToStringRepresentation(MethodHandler.class));
-      b.add(Opcode.RETURN);
-      log.trace("Created MH initializer body for decorator proxy:  " + getBeanType());
-      return b;
+
+      public void overrideMethod(ClassMethod method, Method superclassMethod)
+      {
+         final CodeAttribute ca = method.getCodeAttribute();
+         ca.newInstruction(InvocationHandlerAdaptor.class.getName());
+         ca.dup();
+         ca.dup();
+         loadMethodIdentifier(superclassMethod, method);
+         ca.aload(0);
+         ca.iconst(1);
+         ca.anewarray(Object.class.getName());
+         ca.dup();
+         ca.iconst(0);
+         ca.aload(1);
+         ca.aastore();
+         ca.invokevirtual(Method.class.getName(), "invoke", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
+         ca.checkcast("javassist/util/proxy/MethodHandler");
+
+         ca.invokespecial(InvocationHandlerAdaptor.class.getName(), "<init>", "(Ljavassist/util/proxy/MethodHandler;)V");
+         ca.aload(0);
+         ca.swap();
+         ca.putfield(method.getClassFile().getName(), ProxyFactory.INVOCATION_HANDLER_FIELD, InvocationHandler.class);
+         ca.returnInstruction();
+         log.trace("Created MH initializer body for decorator proxy:  " + method.getClassFile().getName());
+      }
+
    }
 
-   @Override
-   protected void addMethodsFromClass(ClassFile proxyClassType)
+   class DecoratorProxyBodyCreator implements MethodBodyCreator
    {
-      Method initializerMethod = null;
-      int delegateParameterPosition = -1;
-      if (delegateInjectionPoint instanceof ParameterInjectionPoint<?, ?>)
-      {
-         ParameterInjectionPoint<?, ?> parameterIP = (ParameterInjectionPoint<?, ?>) delegateInjectionPoint;
-         if (parameterIP.getMember() instanceof Method)
-         {
-            initializerMethod = ((Method) parameterIP.getMember());
-            delegateParameterPosition = parameterIP.getPosition();
-         }
-      }
-      try
-      {
-         if (delegateParameterPosition >= 0)
-         {
-            addHandlerInitializerMethod(proxyClassType);
-         }
-         Class<?> cls = getBeanType();
-         while (cls != null)
-         {
-            for (Method method : cls.getDeclaredMethods())
-            {
-               MethodInformation methodInfo = new RuntimeMethodInformation(method);
-               if (!method.getDeclaringClass().getName().equals("java.lang.Object") || method.getName().equals("toString"))
-               {
-                  Bytecode methodBody = null;
-                  if ((delegateParameterPosition >= 0) && (initializerMethod.equals(method)))
-                  {
-                     methodBody = createDelegateInitializerCode(proxyClassType, methodInfo, delegateParameterPosition);
-                  }
-                  if (Modifier.isAbstract(method.getModifiers()))
-                  {
-                     methodBody = createAbstractMethodCode(proxyClassType, methodInfo);
-                  }
 
-                  if (methodBody != null)
-                  {
-                     log.trace("Adding method " + method);
-                     proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, methodInfo, method.getExceptionTypes(), methodBody, proxyClassType.getConstPool()));
-                  }
+      public void overrideMethod(ClassMethod cmeth, Method superclassMethod)
+      {
+         final CodeAttribute ca = cmeth.getCodeAttribute();
+         Method initializerMethod = null;
+         int delegateParameterPosition = -1;
+         if (delegateInjectionPoint instanceof ParameterInjectionPoint<?, ?>)
+         {
+            ParameterInjectionPoint<?, ?> parameterIP = (ParameterInjectionPoint<?, ?>) delegateInjectionPoint;
+            if (parameterIP.getMember() instanceof Method)
+            {
+               initializerMethod = ((Method) parameterIP.getMember());
+               delegateParameterPosition = parameterIP.getPosition();
+            }
+         }
+         try
+         {
+            if (!superclassMethod.getDeclaringClass().getName().equals("java.lang.Object") || superclassMethod.getName().equals("toString"))
+            {
+               if ((delegateParameterPosition >= 0) && (initializerMethod.equals(superclassMethod)))
+               {
+                  createDelegateInitializerCode(ca, superclassMethod, delegateParameterPosition);
+               }
+               else if (Modifier.isAbstract(superclassMethod.getModifiers()))
+               {
+                  createAbstractMethodCode(cmeth, superclassMethod);
+               }
+               else
+               {
+                  ca.aload(0);
+                  ca.loadMethodParameters();
+                  ca.invokespecial(superclassMethod);
+                  ca.returnInstruction();
                }
             }
-            cls = cls.getSuperclass();
+         }
+         catch (Exception e)
+         {
+            throw new WeldException(e);
          }
       }
-      catch (Exception e)
-      {
-         throw new WeldException(e);
-      }
+
    }
 
-   @Override
-   protected String getProxyNameSuffix()
+   private void createAbstractMethodCode(ClassMethod classMethod, Method method) throws NotFoundException
    {
-      return PROXY_SUFFIX;
-   }
-
-   private Bytecode createAbstractMethodCode(ClassFile file, MethodInformation method) throws NotFoundException
-   {
+      final CodeAttribute ca = classMethod.getCodeAttribute();
       if ((delegateField != null) && (!Modifier.isPrivate(delegateField.getModifiers())))
       {
          // Call the corresponding method directly on the delegate
-         Bytecode b = new Bytecode(file.getConstPool());
-         int localVariables = MethodUtils.calculateMaxLocals(method.getMethod());
-         b.setMaxLocals(localVariables);
          // load the delegate field
-         b.addAload(0);
-         b.addGetfield(file.getName(), delegateField.getName(), DescriptorUtils.classToStringRepresentation(delegateField.getType()));
+         ca.aload(0);
+         ca.getfield(getClassName(), delegateField.getName(), DescriptorUtils.classToStringRepresentation(delegateField.getType()));
          // load the parameters
-         BytecodeUtils.loadParameters(b, method.getDescriptor());
+         ca.loadMethodParameters();
          // invoke the delegate method
-         b.addInvokeinterface(delegateField.getType().getName(), method.getName(), method.getDescriptor(), localVariables);
+         ca.invokeinterface(delegateField.getType().getName(), method.getName(), org.jboss.classfilewriter.util.DescriptorUtils.methodDescriptor(method));
          // return the value if applicable
-         BytecodeUtils.addReturnInstruction(b, method.getReturnType());
-         return b;
+         ca.returnInstruction();
       }
       else
       {
-         if (!Modifier.isPrivate(method.getMethod().getModifiers()))
+         if (!Modifier.isPrivate(method.getModifiers()))
          {
             // if it is a parameter injection point we need to initalize the
             // injection point then handle the method with the method handler
-            return createAbstractMethodHandler(file, method);
+            createAbstractMethodHandler(classMethod, method);
          }
          else
          {
             // if the delegate is private we need to use the method handler
-            return createInterceptorBody(file, method);
+            super.getDefaultMethodOverride().overrideMethod(classMethod, method);
          }
       }
    }
 
-   private Bytecode createAbstractMethodHandler(ClassFile file, MethodInformation methodInfo)
+   private void createAbstractMethodHandler(ClassMethod classMethod, Method method)
    {
+      CodeAttribute ca = classMethod.getCodeAttribute();
+      ca.aload(0);
+      ca.getfield(getClassName(), INVOCATION_HANDLER_FIELD, InvocationHandler.class);
+      ca.aload(0);
       // this is slightly different to a normal method handler call, as we pass
       // in a TargetInstanceBytecodeMethodResolver. This resolver uses the
       // method handler to call getTargetClass to get the correct class type to
       // resolve the method with, and then resolves this method
-      Bytecode b = new Bytecode(file.getConstPool());
-      invokeMethodHandler(file, b, methodInfo, true, TargetInstanceBytecodeMethodResolver.INSTANCE);
-      return b;
+      // get the correct class type to use to resolve the method
+      ca.aload(0);
+      try
+      {
+         loadMethodIdentifier(TargetInstanceProxy.class.getMethod("getTargetClass"), classMethod);
+      }
+      catch (Exception e)
+      {
+         throw new RuntimeException(e);
+      }
+      ca.invokevirtual(Method.class.getName(), "invoke", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
+      ca.checkcast("java/lang/Class");
+      // now we have the class on the stack
+      ca.ldc(classMethod.getName());
+      // now we need to load the parameter types into an array
+      ca.iconst(method.getParameterTypes().length);
+      ca.anewarray("java.lang.Class");
+      for (int i = 0; i < method.getParameterTypes().length; ++i)
+      {
+         ca.dup(); // duplicate the array reference
+         ca.iconst(i);
+         // now load the class object
+         ca.loadType(classMethod.getParameters()[i]);
+         // and store it in the array
+         ca.aastore();
+      }
+      ca.invokevirtual("java.lang.Class", "getDeclaredMethod", "(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;");
+      // now we need to stick the parameters into an array, boxing if nessesary
+      String[] params = classMethod.getParameters();
+      ca.iconst(params.length);
+      ca.anewarray("java/lang/Object");
+      int loadPosition = 1;
+      for (int i = 0; i < params.length; ++i)
+      {
+         ca.dup();
+         ca.iconst(i);
+         String type = params[i];
+         if (type.length() == 1)
+         { // primitive
+            char typeChar = type.charAt(0);
+            switch (typeChar)
+            {
+            case 'I':
+               ca.iload(loadPosition);
+               Boxing.boxInt(ca);
+               break;
+            case 'S':
+               ca.iload(loadPosition);
+               Boxing.boxShort(ca);
+               break;
+            case 'B':
+               ca.iload(loadPosition);
+               Boxing.boxByte(ca);
+               break;
+            case 'Z':
+               ca.iload(loadPosition);
+               Boxing.boxBoolean(ca);
+               break;
+            case 'C':
+               ca.iload(loadPosition);
+               Boxing.boxChar(ca);
+               break;
+            case 'D':
+               ca.dload(loadPosition);
+               Boxing.boxDouble(ca);
+               loadPosition++;
+               break;
+            case 'J':
+               ca.lload(loadPosition);
+               Boxing.boxLong(ca);
+               loadPosition++;
+               break;
+            case 'F':
+               ca.fload(loadPosition);
+               Boxing.boxFloat(ca);
+               break;
+            default:
+               throw new RuntimeException("Unknown primitive type descriptor: " + typeChar);
+            }
+         }
+         else
+         {
+            ca.aload(loadPosition);
+         }
+         ca.aastore();
+         loadPosition++;
+      }
+      ca.invokeinterface(InvocationHandler.class.getName(), "invoke", "(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;");
+
+      if (method.getReturnType() != void.class)
+      {
+         if (method.getReturnType().isPrimitive())
+         {
+            Boxing.unbox(ca, classMethod.getReturnType());
+         }
+         else
+         {
+            ca.checkcast(method.getReturnType().getName());
+         }
+      }
+      ca.returnInstruction();
    }
 
    /**
@@ -219,17 +317,15 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
     * @param file
     * @param initializerName
     * @param delegateParameterPosition
-    * @return
     */
-   private Bytecode createDelegateInitializerCode(ClassFile file, MethodInformation intializerMethodInfo, int delegateParameterPosition)
+   private void createDelegateInitializerCode(CodeAttribute ca, Method method, int delegateParameterPosition)
    {
-      Bytecode b = new Bytecode(file.getConstPool());
       // we need to push all the pareters on the stack to call the corresponding
       // superclass arguments
-      b.addAload(0); // load this
+      ca.aload(0);
       int localVariables = 1;
       int actualDelegateParamterPosition = 0;
-      for (int i = 0; i < intializerMethodInfo.getMethod().getParameterTypes().length; ++i)
+      for (int i = 0; i < method.getParameterTypes().length; ++i)
       {
          if (i == delegateParameterPosition)
          {
@@ -237,8 +333,7 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
             // variables
             actualDelegateParamterPosition = localVariables;
          }
-         Class<?> type = intializerMethodInfo.getMethod().getParameterTypes()[i];
-         BytecodeUtils.addLoadInstruction(b, DescriptorUtils.classToStringRepresentation(type), localVariables);
+         Class<?> type = method.getParameterTypes()[i];
          if (type == long.class || type == double.class)
          {
             localVariables = localVariables + 2;
@@ -248,49 +343,19 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
             localVariables++;
          }
       }
-      b.addInvokespecial(file.getSuperclass(), intializerMethodInfo.getName(), intializerMethodInfo.getDescriptor());
+      ca.loadMethodParameters();
+      ca.invokespecial(getSuperClassName(), method.getName(), org.jboss.classfilewriter.util.DescriptorUtils.methodDescriptor(method));
       // if this method returns a value it is now sitting on top of the stack
       // we will leave it there are return it later
 
       // now we need to call _initMH
-      b.addAload(0); // load this
-      b.addAload(actualDelegateParamterPosition); // load the delegate
-      b.addInvokevirtual(file.getName(), "_initMH", "(Ljava/lang/Object;)V");
+      ca.aload(0); // load this
+      ca.aload(actualDelegateParamterPosition); // load the delegate
+      ca.invokevirtual(getClassName(), "_initMH", "(Ljava/lang/Object;)V");
       // return the object from the top of the stack that we got from calling
       // the superclass method earlier
-      BytecodeUtils.addReturnInstruction(b, intializerMethodInfo.getReturnType());
-      b.setMaxLocals(localVariables);
-      return b;
+      ca.returnInstruction();
 
-   }
-
-   protected static class TargetInstanceBytecodeMethodResolver implements BytecodeMethodResolver
-   {
-      public void getDeclaredMethod(ClassFile file, Bytecode code, String declaringClass, String methodName, String[] parameterTypes)
-      {
-         // get the correct class type to use to resolve the method
-         MethodInformation methodInfo = new StaticMethodInformation("getTargetClass", parameterTypes, "Ljava/lang/Class;", TargetInstanceProxy.class.getName());
-         invokeMethodHandler(file, code, methodInfo, false, DEFAULT_METHOD_RESOLVER);
-         code.addCheckcast("java/lang/Class");
-         // now we have the class on the stack
-         code.addLdc(methodName);
-         // now we need to load the parameter types into an array
-         code.addIconst(parameterTypes.length);
-         code.addAnewarray("java.lang.Class");
-         for (int i = 0; i < parameterTypes.length; ++i)
-         {
-            code.add(Opcode.DUP); // duplicate the array reference
-            code.addIconst(i);
-            // now load the class object
-            String type = parameterTypes[i];
-            BytecodeUtils.pushClassType(code, type);
-            // and store it in the array
-            code.add(Opcode.AASTORE);
-         }
-         code.addInvokevirtual("java.lang.Class", "getDeclaredMethod", "(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;");
-      }
-
-      static final TargetInstanceBytecodeMethodResolver INSTANCE = new TargetInstanceBytecodeMethodResolver();
    }
 
 }

@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -21,7 +21,6 @@ import static org.jboss.weld.logging.LoggerFactory.loggerFactory;
 import static org.jboss.weld.logging.messages.BeanMessage.BEAN_ID_CREATION_FAILED;
 import static org.jboss.weld.logging.messages.BeanMessage.CREATED_NEW_CLIENT_PROXY_TYPE;
 import static org.jboss.weld.logging.messages.BeanMessage.LOOKED_UP_CLIENT_PROXY;
-import static org.jboss.weld.util.reflection.Reflections.cast;
 
 import java.util.concurrent.ConcurrentMap;
 
@@ -94,7 +93,7 @@ public class ClientProxyProvider
    {
       ContextBeanInstance<T> beanInstance = new ContextBeanInstance<T>(bean, id);
       TypeInfo typeInfo = TypeInfo.of(bean.getTypes());
-      T proxy = new ClientProxyFactory<T>(typeInfo.getSuperClass(), bean.getTypes(), bean).create(beanInstance);
+      T proxy = new ClientProxyFactory<T>(typeInfo.getSuperClass(), bean).create(beanInstance);
       log.trace(CREATED_NEW_CLIENT_PROXY_TYPE, proxy.getClass(), bean, id);
       return proxy;
    }
@@ -125,7 +124,7 @@ public class ClientProxyProvider
    {
       return "Proxy pool with " + pool.size() + " proxies";
    }
-   
+
    public void clear()
    {
       this.pool.clear();

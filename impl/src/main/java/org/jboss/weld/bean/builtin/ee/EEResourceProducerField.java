@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -32,7 +32,7 @@ import org.jboss.weld.bean.ProducerField;
 import org.jboss.weld.bean.builtin.CallableMethodHandler;
 import org.jboss.weld.bean.proxy.BeanInstance;
 import org.jboss.weld.bean.proxy.EnterpriseTargetBeanInstance;
-import org.jboss.weld.bean.proxy.ProxyFactory;
+import org.jboss.weld.bean.proxy.ProxyFactoryImpl;
 import org.jboss.weld.bootstrap.BeanDeployerEnvironment;
 import org.jboss.weld.bootstrap.api.ServiceRegistry;
 import org.jboss.weld.ejb.EJBApiAbstraction;
@@ -107,7 +107,7 @@ public class EEResourceProducerField<X, T> extends ProducerField<X, T>
    {
       return new EEResourceProducerField<X, T>(field, declaringBean, manager, services);
    }
-   
+
    private final WeldInjectionPoint<?, ?> injectionPoint;
 
    protected EEResourceProducerField(WeldField<T, ? super X> field, AbstractClassBean<X> declaringBean, BeanManagerImpl manager, ServiceRegistry services)
@@ -151,7 +151,7 @@ public class EEResourceProducerField<X, T> extends ProducerField<X, T>
       else
       {
          BeanInstance proxyBeanInstance = new EnterpriseTargetBeanInstance(getTypes(), new CallableMethodHandler(new EEResourceCallable<T>(getBeanManager(), this, creationalContext)));
-         return new ProxyFactory<T>(getType(), getTypes(), this).create(proxyBeanInstance);
+         return new ProxyFactoryImpl<T>(getType(), this).create(proxyBeanInstance);
       }
    }
 
@@ -176,7 +176,7 @@ public class EEResourceProducerField<X, T> extends ProducerField<X, T>
    {
       return true;
    }
-   
+
    @Override
    public String toString()
    {

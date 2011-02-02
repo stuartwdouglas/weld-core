@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -32,14 +32,11 @@ import static org.jboss.weld.util.reflection.Reflections.cast;
 
 import java.beans.Introspector;
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import javassist.util.proxy.ProxyObject;
 
 import javax.enterprise.context.Dependent;
 import javax.enterprise.context.NormalScope;
@@ -59,12 +56,13 @@ import org.jboss.interceptor.spi.metadata.ClassMetadata;
 import org.jboss.interceptor.spi.metadata.InterceptorMetadata;
 import org.jboss.interceptor.spi.model.InterceptionModel;
 import org.jboss.interceptor.util.InterceptionUtils;
+import org.jboss.invocation.proxy.ProxyFactory;
 import org.jboss.weld.bean.interceptor.SerializableContextualInterceptorReference;
 import org.jboss.weld.bean.interceptor.WeldInterceptorClassMetadata;
 import org.jboss.weld.bean.proxy.CombinedInterceptorAndDecoratorStackMethodHandler;
 import org.jboss.weld.bean.proxy.DecorationHelper;
 import org.jboss.weld.bean.proxy.InterceptedSubclassFactory;
-import org.jboss.weld.bean.proxy.ProxyFactory;
+import org.jboss.weld.bean.proxy.ProxyFactoryImpl;
 import org.jboss.weld.bean.proxy.TargetBeanInstance;
 import org.jboss.weld.bootstrap.BeanDeployerEnvironment;
 import org.jboss.weld.bootstrap.api.ServiceRegistry;
@@ -104,12 +102,12 @@ public abstract class AbstractClassBean<T> extends AbstractBean<T, Class<T>>
 {
 
    private static final InterceptorMetadata<?>[] EMPTY_INTERCEPTOR_METADATA_ARRAY = new InterceptorMetadata[0];
-   
+
    private static <T> InterceptorMetadata<T>[] emptyInterceptorMetadataArray()
    {
       return cast(EMPTY_INTERCEPTOR_METADATA_ARRAY);
    }
-   
+
    /**
     * Extracts the complete set of interception bindings from a given set of
     * annotations.
@@ -368,7 +366,7 @@ public abstract class AbstractClassBean<T> extends AbstractBean<T, Class<T>>
    protected T applyDecorators(T instance, CreationalContext<T> creationalContext, InjectionPoint originalInjectionPoint)
    {
       TargetBeanInstance beanInstance = new TargetBeanInstance(this, instance);
-      ProxyFactory<T> proxyFactory = new ProxyFactory<T>(getType(), getTypes(), this);
+      ProxyFactoryImpl<T> proxyFactory = new ProxyFactoryImpl<T>(getType(), this);
       DecorationHelper<T> decorationHelper = new DecorationHelper<T>(beanInstance, this, proxyFactory.getProxyClass(), beanManager, getServices().get(ContextualStore.class), decorators);
       DecorationHelper.getHelperStack().push(decorationHelper);
       final T outerDelegate = decorationHelper.getNextDelegate(originalInjectionPoint, creationalContext);
@@ -377,7 +375,7 @@ public abstract class AbstractClassBean<T> extends AbstractBean<T, Class<T>>
       {
          throw new WeldException(PROXY_INSTANTIATION_FAILED, this);
       }
-      CombinedInterceptorAndDecoratorStackMethodHandler wrapperMethodHandler = (CombinedInterceptorAndDecoratorStackMethodHandler) ((ProxyObject) instance).getHandler();
+      CombinedInterceptorAndDecoratorStackMethodHandler wrapperMethodHandler = (CombinedInterceptorAndDecoratorStackMethodHandler) ProxyFactory.getInvocationHandlerStatic(instance);
       wrapperMethodHandler.setOuterDecorator(outerDelegate);
       return instance;
    }
@@ -670,7 +668,7 @@ public abstract class AbstractClassBean<T> extends AbstractBean<T, Class<T>>
       {
          enhancedMethodSignatures.add(new MethodSignatureImpl(method));
       }
-      return new InterceptedSubclassFactory<T>(getType(), Collections.<Type>emptySet(), this, enhancedMethodSignatures).getProxyClass();
+      return new InterceptedSubclassFactory<T>(getType(), this, enhancedMethodSignatures).getProxyClass();
    }
 
 }
