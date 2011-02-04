@@ -23,7 +23,11 @@ import static org.jboss.weld.logging.messages.BeanMessage.PROXY_INSTANTIATION_BE
 import static org.jboss.weld.logging.messages.BeanMessage.PROXY_INSTANTIATION_FAILED;
 
 import java.io.Serializable;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.security.ProtectionDomain;
 import java.util.HashSet;
 import java.util.Set;
@@ -38,11 +42,17 @@ import javassist.util.proxy.MethodHandler;
 
 import javax.enterprise.inject.spi.Bean;
 
+import org.jboss.classfilewriter.ClassMethod;
+import org.jboss.classfilewriter.code.CodeAttribute;
 import org.jboss.interceptor.proxy.LifecycleMixin;
 import org.jboss.interceptor.util.proxy.TargetInstanceProxy;
+import org.jboss.invocation.proxy.MethodBodyCreator;
+import org.jboss.invocation.proxy.MethodIdentifier;
 import org.jboss.invocation.proxy.ProxyFactory;
 import org.jboss.weld.Container;
+import org.jboss.weld.bean.proxy.util.WeldSerializableProxy;
 import org.jboss.weld.exceptions.DefinitionException;
+import org.jboss.weld.exceptions.WeldException;
 import org.jboss.weld.serialization.spi.ContextualStore;
 import org.jboss.weld.serialization.spi.ProxyServices;
 import org.jboss.weld.util.Proxies.TypeInfo;
@@ -65,12 +75,41 @@ import org.slf4j.cal10n.LocLogger;
 public class ProxyFactoryImpl<T> extends ProxyFactory<T>
 {
 
+   /**
+    * Generates the writeReplace method
+    * 
+    * @author Stuart Douglas
+    * 
+    */
+   protected class WriteReplaceBodyCreator implements MethodBodyCreator
+   {
+
+      /**
+       * Generate the writeReplace method body.
+       * 
+       * @param method the method to populate
+       * @param superclassMethod the method to override
+       */
+      public void overrideMethod(ClassMethod method, Method superclassMethod)
+      {
+         // superClassMethod will be null
+         CodeAttribute ca = method.getCodeAttribute();
+         ca.newInstruction(WeldSerializableProxy.class.getName());
+         ca.dup();
+         ca.aload(0);
+         ca.getstatic(getClassName(), BEAN_FIELD, Bean.class);
+         ca.invokespecial(WeldSerializableProxy.class.getName(), "<init>", "(Ljava/lang/Object;Ljavax/enterprise/inject/spi/Bean;)V");
+         ca.returnInstruction();
+      }
+   }
+
    // The log provider
    protected static final LocLogger log = loggerFactory().getLogger(BEAN);
 
    // Default proxy class name suffix
    public static final String PROXY_SUFFIX = "Proxy";
    public static final String DEFAULT_PROXY_PACKAGE = "org.jboss.weld.proxies";
+   public static final String BEAN_FIELD = "bean$$holder";
 
    private static final Class<?>[] EMPTY_CLASS_ARRAY = new Class[0];
 
@@ -114,12 +153,41 @@ public class ProxyFactoryImpl<T> extends ProxyFactory<T>
    {
       addInterface(super.getDefaultMethodOverride(), LifecycleMixin.class);
       addInterface(super.getDefaultMethodOverride(), TargetInstanceProxy.class);
+      overrideMethod(classFile.addMethod(AccessFlag.PRIVATE, "writeReplace", "Ljava/lang/Object;"), MethodIdentifier.getIdentifier("java.lang.Object", "writeReplace"), new WriteReplaceBodyCreator());
+      classFile.addField(AccessFlag.PROTECTED | AccessFlag.STATIC, BEAN_FIELD, Bean.class);
       super.generateClass();
    };
 
    /**
+    * Sets bean field
+    */
+   @Override
+   public void afterClassLoad(Class<?> clazz)
+   {
+      super.afterClassLoad(clazz);
+      try
+      {
+         final Field field = clazz.getDeclaredField(BEAN_FIELD);
+         AccessController.doPrivileged(new PrivilegedAction<Void>()
+         {
+
+            public Void run()
+            {
+               field.setAccessible(true);
+               return null;
+            }
+         });
+         field.set(null, bean);
+      }
+      catch (Exception e)
+      {
+         throw new WeldException(e);
+      }
+   }
+
+   /**
     * Method to create a new proxy that wraps the bean instance.
-    *
+    * 
     * @return a new proxy object
     */
    public T create(BeanInstance beanInstance)

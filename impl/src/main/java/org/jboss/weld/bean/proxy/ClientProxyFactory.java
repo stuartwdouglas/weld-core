@@ -17,11 +17,11 @@
 
 package org.jboss.weld.bean.proxy;
 
+import static org.jboss.invocation.proxy.ProxyFactory.CONSTRUCTED_GUARD;
+
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-
-import javassist.util.proxy.MethodHandler;
 
 import javax.enterprise.inject.spi.Bean;
 
@@ -97,8 +97,20 @@ public class ClientProxyFactory<T> extends ProxyFactoryImpl<T>
          if (!bytecodeInvocationAllowed)
          {
             super.overrideMethod(method, superclassMethod);
+            return;
          }
-
+         // first we need to check the constructed field
+         ca.aload(0);
+         ca.getfield(getClassName(), CONSTRUCTED_GUARD, "Z");
+         // if the object has not been constructed yet invoke the superclass
+         // version of the method
+         BranchEnd end = ca.ifne();
+         ca.aload(0);
+         ca.loadMethodParameters();
+         ca.invokespecial(getSuperClassName(), method.getName(), method.getDescriptor());
+         ca.returnInstruction();
+         ca.branchEnd(end);
+         // normal invocation path begins here
          // create a new interceptor invocation context whenever we invoke a
          // method on a client proxy
          // we use a try-catch block in order to make sure that
@@ -113,11 +125,10 @@ public class ClientProxyFactory<T> extends ProxyFactoryImpl<T>
          ca.aload(0);
          ca.aconstNull();
          ca.aconstNull();
-         ca.aconstNull();
 
          // now we have all our arguments on the stack
          // lets invoke the method
-         ca.invokeinterface(MethodHandler.class.getName(), "invoke", "(Ljava/lang/Object;Ljava/lang/reflect/Method;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;");
+         ca.invokeinterface(InvocationHandler.class.getName(), "invoke", "(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;");
 
          ca.checkcast(superclassMethod.getDeclaringClass());
 

@@ -7,6 +7,7 @@ import java.io.Serializable;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Set;
 
 import javassist.util.proxy.MethodHandler;
@@ -24,13 +25,6 @@ public class CombinedInterceptorAndDecoratorStackMethodHandler implements Method
    private MethodHandler interceptorMethodHandler;
 
    private Object outerDecorator;
-
-   private final InvocationHandlerAdaptor adaptor;
-
-   public CombinedInterceptorAndDecoratorStackMethodHandler()
-   {
-      adaptor = new InvocationHandlerAdaptor(this);
-   }
 
    public void setInterceptorMethodHandler(MethodHandler interceptorMethodHandler)
    {
@@ -115,7 +109,9 @@ public class CombinedInterceptorAndDecoratorStackMethodHandler implements Method
 
    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable
    {
-      return adaptor.invoke(proxy, method, args);
+      Method proceed = (Method) args[0];
+      args = Arrays.copyOfRange(args, 1, args.length);
+      return invoke(proxy, method, proceed, args);
    }
 
 }

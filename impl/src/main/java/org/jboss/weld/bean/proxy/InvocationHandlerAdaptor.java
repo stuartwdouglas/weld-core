@@ -43,22 +43,25 @@ public class InvocationHandlerAdaptor implements InvocationHandler, Serializable
    public Object invoke(Object proxy, Method proceed, Object[] args) throws Throwable
    {
       Method thisMethod = null;
-      for (Method proxyMethod : proxy.getClass().getDeclaredMethods())
+      if (proceed != null)
       {
-         if (!proxyMethod.getName().equals(proceed.getName()))
+         for (Method proxyMethod : proxy.getClass().getDeclaredMethods())
          {
-            continue;
+            if (!proxyMethod.getName().equals(proceed.getName()))
+            {
+               continue;
+            }
+            if (!proxyMethod.getReturnType().equals(proceed.getReturnType()))
+            {
+               continue;
+            }
+            if (!Arrays.equals(proxyMethod.getParameterTypes(), proceed.getParameterTypes()))
+            {
+               continue;
+            }
+            thisMethod = proxyMethod;
+            break;
          }
-         if (!proxyMethod.getReturnType().equals(proceed.getReturnType()))
-         {
-            continue;
-         }
-         if (!Arrays.equals(proxyMethod.getParameterTypes(), proceed.getParameterTypes()))
-         {
-            continue;
-         }
-         thisMethod = proxyMethod;
-         break;
       }
       return methodHandler.invoke(proxy, thisMethod, proceed, args);
    }

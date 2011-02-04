@@ -89,7 +89,7 @@
       <contiperf.version>1.06</contiperf.version>
       <jboss.ejb3.ext-api.version>1.1.1</jboss.ejb3.ext-api.version>
       <javax.jms.version>1.1</javax.jms.version>
-      <classfilewriter.version>1.0.0-SNAPSHOT</classfilewriter.version>
+      <classfilewriter.version>1.0.0.Alpha4</classfilewriter.version>
       <jboss-invocation.version>1.0.0.Beta2-SNAPSHOT</jboss-invocation.version>
       <jbossas.server.manager.version>1.0.3.GA</jbossas.server.manager.version>
       <jbossas.client.version>6.0.0.20100721-M4</jbossas.client.version>

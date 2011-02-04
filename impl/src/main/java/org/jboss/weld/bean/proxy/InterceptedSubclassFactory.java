@@ -37,8 +37,9 @@ import org.jboss.weld.introspector.jlr.MethodSignatureImpl;
 import org.jboss.weld.util.bytecode.DescriptorUtils;
 
 /**
- * Factory for producing subclasses that are used by the combined interceptors and decorators stack.
- *
+ * Factory for producing subclasses that are used by the combined interceptors
+ * and decorators stack.
+ * 
  * @author Marius Bogoevici
  */
 public class InterceptedSubclassFactory<T> extends ProxyFactoryImpl<T>
@@ -55,15 +56,15 @@ public class InterceptedSubclassFactory<T> extends ProxyFactoryImpl<T>
       this(proxiedBeanType, getProxyName(proxiedBeanType, bean), bean, enhancedMethodSignatures);
    }
 
-
    /**
     * Creates a new proxy factory when the name of the proxy class is already
     * known, such as during de-serialization
-    *
+    * 
     * @param proxiedBeanType the super-class for this proxy class
     * @param typeClosure the bean types of the bean
-    * @param enhancedMethodSignatures a restricted set of methods that need to be intercepted
-    *
+    * @param enhancedMethodSignatures a restricted set of methods that need to
+    *           be intercepted
+    * 
     */
    public InterceptedSubclassFactory(Class<?> proxiedBeanType, String proxyName, Bean<?> bean, Set<MethodSignature> enhancedMethodSignatures)
    {
@@ -92,11 +93,11 @@ public class InterceptedSubclassFactory<T> extends ProxyFactoryImpl<T>
          CodeAttribute ca = method.getCodeAttribute();
          if (enhancedMethodSignatures.contains(new MethodSignatureImpl(superClassMethod)))
          {
-               ClassMethod superMethod = method.getClassFile().addMethod(AccessFlag.PUBLIC, method.getName() + SUPER_DELEGATE_SUFFIX, method.getReturnType(), method.getParameters());
-               superMethod.getCodeAttribute().aload(0);
-               superMethod.getCodeAttribute().loadMethodParameters();
-               superMethod.getCodeAttribute().invokespecial(superClassMethod);
-               superMethod.getCodeAttribute().returnInstruction();
+            ClassMethod superMethod = method.getClassFile().addMethod(AccessFlag.PUBLIC, method.getName() + SUPER_DELEGATE_SUFFIX, method.getReturnType(), method.getParameters());
+            superMethod.getCodeAttribute().aload(0);
+            superMethod.getCodeAttribute().loadMethodParameters();
+            superMethod.getCodeAttribute().invokespecial(superClassMethod);
+            superMethod.getCodeAttribute().returnInstruction();
             invokeMethodHandler(method, superClassMethod, true, true);
          }
          else
@@ -191,13 +192,21 @@ public class InterceptedSubclassFactory<T> extends ProxyFactoryImpl<T>
       }
       ca.aload(0);
       getDeclaredMethod(ca, superClassMethod.getDeclaringClass().getName(), classMethod.getName(), classMethod.getParameters());
-      /*
-       * if (addProceed) { getDeclaredMethod(ca, getClassName(),
-       * classMethod.getName() + SUPER_DELEGATE_SUFFIX,
-       * classMethod.getParameters()); } else { ca.aconstNull(); }
-       */
-      ca.iconst(classMethod.getParameters().length);
+
+      // we stick the proceed method into the parameter array (sneaky sneaky)
+      ca.iconst(classMethod.getParameters().length + 1);
       ca.anewarray("java.lang.Object");
+      ca.dup();
+      ca.iconst(0);
+      if (addProceed)
+      {
+         getDeclaredMethod(ca, getClassName(), classMethod.getName() + SUPER_DELEGATE_SUFFIX, classMethod.getParameters());
+      }
+      else
+      {
+         ca.aconstNull();
+      }
+      ca.aastore();
 
       int localVariableCount = 1;
 
@@ -205,7 +214,7 @@ public class InterceptedSubclassFactory<T> extends ProxyFactoryImpl<T>
       {
          String typeString = classMethod.getParameters()[i];
          ca.dup(); // duplicate the array reference
-         ca.iconst(i);
+         ca.iconst(i + 1);
          // load the parameter value
          ca.load(typeString, localVariableCount);
          // box the parameter if nessesary

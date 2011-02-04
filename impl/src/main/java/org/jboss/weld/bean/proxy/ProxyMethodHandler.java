@@ -87,7 +87,7 @@ public class ProxyMethodHandler implements MethodHandler, Serializable
          return beanInstance.getInstance();
       }
       log.trace("MethodHandler processing call to " + thisMethod + " for " + self.getClass());
-      if (thisMethod.getDeclaringClass().equals(TargetInstanceProxy.class))
+      if (proceed.getDeclaringClass().equals(TargetInstanceProxy.class))
       {
          if (beanInstance == null)
          {
@@ -108,7 +108,7 @@ public class ProxyMethodHandler implements MethodHandler, Serializable
       }
       else if (thisMethod.getName().equals("writeReplace"))
       {
-         return new org.jboss.weld.bean.proxy.util.SerializableProxy(self, getBean());
+         return new org.jboss.weld.bean.proxy.util.WeldSerializableProxy(self, getBean());
       }
       else if (thisMethod.getName().equals("_initMH"))
       {

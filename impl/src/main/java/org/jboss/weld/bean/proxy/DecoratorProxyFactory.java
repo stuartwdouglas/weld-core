@@ -54,9 +54,15 @@ public class DecoratorProxyFactory<T> extends ProxyFactoryImpl<T>
    private final WeldInjectionPoint<?, ?> delegateInjectionPoint;
    private final Field delegateField;
 
+
    public DecoratorProxyFactory(Class<T> proxyType, WeldInjectionPoint<?, ?> delegateInjectionPoint, Bean<?> bean)
    {
-      super(proxyType, bean);
+      this(proxyType, ProxyFactoryImpl.getProxyName(proxyType, bean), delegateInjectionPoint, bean);
+   }
+
+   private DecoratorProxyFactory(Class<?> proxiedBeanType, String proxyName, WeldInjectionPoint<?, ?> delegateInjectionPoint, Bean<?> bean)
+   {
+      super(ProxyFactoryImpl.proxyConfig(proxiedBeanType, proxyName, bean, PROXY_SUFFIX), bean);
       this.delegateInjectionPoint = delegateInjectionPoint;
       if (delegateInjectionPoint instanceof FieldInjectionPoint<?, ?>)
       {
@@ -67,6 +73,7 @@ public class DecoratorProxyFactory<T> extends ProxyFactoryImpl<T>
          delegateField = null;
       }
    }
+
 
    protected void generateClass()
    {
@@ -93,19 +100,21 @@ public class DecoratorProxyFactory<T> extends ProxyFactoryImpl<T>
       public void overrideMethod(ClassMethod method, Method superclassMethod)
       {
          final CodeAttribute ca = method.getCodeAttribute();
+
          ca.newInstruction(InvocationHandlerAdaptor.class.getName());
          ca.dup();
-         ca.dup();
-         loadMethodIdentifier(superclassMethod, method);
          ca.aload(0);
+         ca.getfield(getClassName(), INVOCATION_HANDLER_FIELD, InvocationHandler.class);
+         ca.aload(0);
+         loadMethodIdentifier(superclassMethod, method);
          ca.iconst(1);
-         ca.anewarray(Object.class.getName());
+         ca.anewarray("java.lang.Object");
          ca.dup();
          ca.iconst(0);
-         ca.aload(1);
+         ca.aload(0);
          ca.aastore();
-         ca.invokevirtual(Method.class.getName(), "invoke", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
-         ca.checkcast("javassist/util/proxy/MethodHandler");
+         ca.invokeinterface(InvocationHandler.class.getName(), "invoke", "(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;");
+         ca.checkcast("javassist.util.proxy.MethodHandler");
 
          ca.invokespecial(InvocationHandlerAdaptor.class.getName(), "<init>", "(Ljavassist/util/proxy/MethodHandler;)V");
          ca.aload(0);
@@ -154,6 +163,14 @@ public class DecoratorProxyFactory<T> extends ProxyFactoryImpl<T>
                   ca.returnInstruction();
                }
             }
+            else
+            {
+               ca.aload(0);
+               ca.loadMethodParameters();
+               ca.invokespecial(superclassMethod);
+               ca.returnInstruction();
+            }
+
          }
          catch (Exception e)
          {
@@ -181,17 +198,9 @@ public class DecoratorProxyFactory<T> extends ProxyFactoryImpl<T>
       }
       else
       {
-         if (!Modifier.isPrivate(method.getModifiers()))
-         {
-            // if it is a parameter injection point we need to initalize the
-            // injection point then handle the method with the method handler
-            createAbstractMethodHandler(classMethod, method);
-         }
-         else
-         {
-            // if the delegate is private we need to use the method handler
-            super.getDefaultMethodOverride().overrideMethod(classMethod, method);
-         }
+         // if it is a parameter injection point we need to initalize the
+         // injection point then handle the method with the method handler
+         createAbstractMethodHandler(classMethod, method);
       }
    }
 
@@ -206,106 +215,81 @@ public class DecoratorProxyFactory<T> extends ProxyFactoryImpl<T>
       // method handler to call getTargetClass to get the correct class type to
       // resolve the method with, and then resolves this method
       // get the correct class type to use to resolve the method
-      ca.aload(0);
       try
       {
-         loadMethodIdentifier(TargetInstanceProxy.class.getMethod("getTargetClass"), classMethod);
+         ca.aload(0);
+         ca.getfield(getClassName(), INVOCATION_HANDLER_FIELD, InvocationHandler.class);
+         ca.aload(0);
+         loadMethodIdentifier(TargetInstanceProxy.class.getDeclaredMethod("getTargetClass"), classMethod);
+         ca.iconst(0);
+         ca.anewarray("java.lang.Object");
+         ca.invokeinterface(InvocationHandler.class.getName(), "invoke", "(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;");
+         ca.checkcast("java.lang.Class");
+         ca.ldc(method.getName());
+         ca.iconst(method.getParameterTypes().length);
+         ca.anewarray("java.lang.Class");
+         for (int i = 0; i < method.getParameterTypes().length; ++i)
+         {
+            Class<?> type = method.getParameterTypes()[i];
+            String typeString = classMethod.getParameters()[i];
+            ca.dup(); // duplicate the array reference
+            ca.iconst(i);
+            // load the parameter type
+            ca.loadType(typeString);
+            // and store it in the array
+            ca.aastore();
+         }
+         ca.invokevirtual("java.lang.Class", "getDeclaredMethod", "(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;");
       }
       catch (Exception e)
       {
          throw new RuntimeException(e);
       }
-      ca.invokevirtual(Method.class.getName(), "invoke", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;");
-      ca.checkcast("java/lang/Class");
-      // now we have the class on the stack
-      ca.ldc(classMethod.getName());
-      // now we need to load the parameter types into an array
+
       ca.iconst(method.getParameterTypes().length);
-      ca.anewarray("java.lang.Class");
+      ca.anewarray("java.lang.Object");
+
+      int localVariableCount = 1;
+
       for (int i = 0; i < method.getParameterTypes().length; ++i)
       {
+         Class<?> type = method.getParameterTypes()[i];
+         String typeString = classMethod.getParameters()[i];
          ca.dup(); // duplicate the array reference
          ca.iconst(i);
-         // now load the class object
-         ca.loadType(classMethod.getParameters()[i]);
+         // load the parameter value
+         ca.load(type, localVariableCount);
+         // box the parameter if nessesary
+         Boxing.boxIfNessesary(ca, typeString);
          // and store it in the array
          ca.aastore();
-      }
-      ca.invokevirtual("java.lang.Class", "getDeclaredMethod", "(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;");
-      // now we need to stick the parameters into an array, boxing if nessesary
-      String[] params = classMethod.getParameters();
-      ca.iconst(params.length);
-      ca.anewarray("java/lang/Object");
-      int loadPosition = 1;
-      for (int i = 0; i < params.length; ++i)
-      {
-         ca.dup();
-         ca.iconst(i);
-         String type = params[i];
-         if (type.length() == 1)
-         { // primitive
-            char typeChar = type.charAt(0);
-            switch (typeChar)
-            {
-            case 'I':
-               ca.iload(loadPosition);
-               Boxing.boxInt(ca);
-               break;
-            case 'S':
-               ca.iload(loadPosition);
-               Boxing.boxShort(ca);
-               break;
-            case 'B':
-               ca.iload(loadPosition);
-               Boxing.boxByte(ca);
-               break;
-            case 'Z':
-               ca.iload(loadPosition);
-               Boxing.boxBoolean(ca);
-               break;
-            case 'C':
-               ca.iload(loadPosition);
-               Boxing.boxChar(ca);
-               break;
-            case 'D':
-               ca.dload(loadPosition);
-               Boxing.boxDouble(ca);
-               loadPosition++;
-               break;
-            case 'J':
-               ca.lload(loadPosition);
-               Boxing.boxLong(ca);
-               loadPosition++;
-               break;
-            case 'F':
-               ca.fload(loadPosition);
-               Boxing.boxFloat(ca);
-               break;
-            default:
-               throw new RuntimeException("Unknown primitive type descriptor: " + typeChar);
-            }
+         if (DescriptorUtils.isWide(typeString))
+         {
+            localVariableCount = localVariableCount + 2;
          }
          else
          {
-            ca.aload(loadPosition);
+            localVariableCount++;
          }
-         ca.aastore();
-         loadPosition++;
       }
+      // now we have all our arguments on the stack
+      // lets invoke the method
       ca.invokeinterface(InvocationHandler.class.getName(), "invoke", "(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;");
 
-      if (method.getReturnType() != void.class)
+      // now we need to return the appropriate type
+      if (method.getReturnType().equals(void.class))
       {
-         if (method.getReturnType().isPrimitive())
-         {
-            Boxing.unbox(ca, classMethod.getReturnType());
-         }
-         else
-         {
-            ca.checkcast(method.getReturnType().getName());
-         }
+         ca.returnInstruction();
       }
-      ca.returnInstruction();
+      else if (method.getReturnType().isPrimitive())
+      {
+         Boxing.unbox(ca, classMethod.getReturnType());
+         ca.returnInstruction();
+      }
+      else
+      {
+         ca.returnInstruction();
+      }
    }
 
    /**
