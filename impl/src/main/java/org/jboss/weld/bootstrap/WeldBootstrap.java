@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -33,8 +33,8 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.enterprise.context.spi.Context;
@@ -183,7 +183,7 @@ public class WeldBootstrap implements Bootstrap
          {
             // Create the BeanDeployment
             parent = new BeanDeployment(beanDeploymentArchive, deploymentManager, deployment.getServices(), contexts);
-            
+
             // Attach it
             managerAwareBeanDeploymentArchives.put(beanDeploymentArchive, parent);
          }
@@ -195,6 +195,10 @@ public class WeldBootstrap implements Bootstrap
             {
                BeanDeployment child = visit(archive, managerAwareBeanDeploymentArchives, seenBeanDeploymentArchives, validate);
                parent.getBeanManager().addAccessibleBeanManager(child.getBeanManager());
+            }
+            else
+            {
+               parent.getBeanManager().addAccessibleBeanManager(managerAwareBeanDeploymentArchives.get(archive).getBeanManager());
             }
          }
          return parent;
@@ -385,7 +389,7 @@ public class WeldBootstrap implements Bootstrap
          log.debug(VALIDATING_BEANS);
          for (Entry<BeanDeploymentArchive, BeanDeployment> entry : beanDeployments.entrySet())
          {
-            BeanManagerImpl beanManager = entry.getValue().getBeanManager(); 
+            BeanManagerImpl beanManager = entry.getValue().getBeanManager();
             beanManager.getBeanResolver().clear();
             deployment.getServices().get(Validator.class).validateDeployment(beanManager, entry.getValue().getBeanDeployer().getEnvironment());
             beanManager.getServices().get(InjectionTargetValidator.class).validate();
@@ -444,12 +448,12 @@ public class WeldBootstrap implements Bootstrap
 
       if (Reflections.isClassLoadable("javax.servlet.ServletContext", deployment.getServices().get(ResourceLoader.class)))
       {
-         // Register the Http contexts if not in 
+         // Register the Http contexts if not in
          contexts.add(new ContextHolder<HttpSessionContext>(new HttpSessionContextImpl(), HttpSessionContext.class, HttpLiteral.INSTANCE));
          contexts.add(new ContextHolder<HttpConversationContext>(new HttpConversationContextImpl(), HttpConversationContext.class, HttpLiteral.INSTANCE));
          contexts.add(new ContextHolder<HttpRequestContext>(new HttpRequestContextImpl(), HttpRequestContext.class, HttpLiteral.INSTANCE));
       }
-      
+
       if (deployment.getServices().contains(EjbServices.class))
       {
          // Register the EJB Request context if EjbServices are available
@@ -466,9 +470,8 @@ public class WeldBootstrap implements Bootstrap
          deploymentManager.addContext(context.getContext());
          deploymentManager.addBean(ContextBean.of(context, deploymentManager));
       }
-      
 
-      
+
       return contexts;
    }
 
