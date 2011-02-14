@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -38,8 +38,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import javassist.util.proxy.ProxyObject;
 
 import javax.enterprise.context.Dependent;
 import javax.enterprise.context.NormalScope;
@@ -104,12 +102,12 @@ public abstract class AbstractClassBean<T> extends AbstractBean<T, Class<T>>
 {
 
    private static final InterceptorMetadata<?>[] EMPTY_INTERCEPTOR_METADATA_ARRAY = new InterceptorMetadata[0];
-   
+
    private static <T> InterceptorMetadata<T>[] emptyInterceptorMetadataArray()
    {
       return cast(EMPTY_INTERCEPTOR_METADATA_ARRAY);
    }
-   
+
    /**
     * Extracts the complete set of interception bindings from a given set of
     * annotations.
@@ -377,7 +375,7 @@ public abstract class AbstractClassBean<T> extends AbstractBean<T, Class<T>>
       {
          throw new WeldException(PROXY_INSTANTIATION_FAILED, this);
       }
-      CombinedInterceptorAndDecoratorStackMethodHandler wrapperMethodHandler = (CombinedInterceptorAndDecoratorStackMethodHandler) ((ProxyObject) instance).getHandler();
+      CombinedInterceptorAndDecoratorStackMethodHandler wrapperMethodHandler = (CombinedInterceptorAndDecoratorStackMethodHandler) ProxyFactory.getInvocationHandler(instance);
       wrapperMethodHandler.setOuterDecorator(outerDelegate);
       return instance;
    }

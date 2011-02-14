@@ -27,11 +27,15 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
+import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.security.ProtectionDomain;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -92,9 +96,12 @@ public class ProxyFactory<T>
    private final String baseProxyName;
    private final Bean<?> bean;
 
-   private static final String FIRST_SERIALIZATION_PHASE_COMPLETE_FIELD_NAME = "firstSerializationPhaseComplete";
+   protected static final String FIRST_SERIALIZATION_PHASE_COMPLETE_FIELD_NAME = "firstSerializationPhaseComplete";
 
-   public static final String CONSTRUCTED_FLAG_NAME = "constructed";
+   protected static final String METHOD_HANDLER_FIELD_NAME = "methodHandler";
+
+   protected static final String CONSTRUCTED_FLAG_NAME = "constructed";
+
 
    protected static final BytecodeMethodResolver DEFAULT_METHOD_RESOLVER = new DefaultBytecodeMethodResolver();
 
@@ -444,7 +451,7 @@ public class ProxyFactory<T>
       {
          // The field representing the underlying instance or special method
          // handling
-         proxyClassType.addField(AccessFlag.PRIVATE,"methodHandler", "Ljavassist/util/proxy/MethodHandler;");
+         proxyClassType.addField(AccessFlag.PRIVATE, METHOD_HANDLER_FIELD_NAME, "Ljavassist/util/proxy/MethodHandler;");
          // Special field used during serialization of a proxy
          proxyClassType.addField(AccessFlag.TRANSIENT | AccessFlag.PRIVATE, FIRST_SERIALIZATION_PHASE_COMPLETE_FIELD_NAME, "Ljava/lang/ThreadLocal;");
          // field used to indicate that super() has been called
@@ -578,7 +585,7 @@ public class ProxyFactory<T>
       ca.invokevirtual("java.lang.ThreadLocal", "set", "(Ljava/lang/Object;)V");
 
       ca.aload(0);
-      ca.getfield(methodInfo.getDeclaringClass(), "methodHandler", DescriptorUtils.makeDescriptor(MethodHandler.class));
+      ca.getfield(methodInfo.getDeclaringClass(), METHOD_HANDLER_FIELD_NAME, DescriptorUtils.makeDescriptor(MethodHandler.class));
       ca.aload(0);
       DEFAULT_METHOD_RESOLVER.getDeclaredMethod(method.getClassFile(), ca, methodInfo);
       ca.aconstNull();
@@ -757,7 +764,7 @@ public class ProxyFactory<T>
       // primitive
       // add an appropriate return instruction
       ca.aload(0);
-      ca.getfield(file.getName(), "methodHandler", DescriptorUtils.makeDescriptor(MethodHandler.class));
+      ca.getfield(file.getName(), METHOD_HANDLER_FIELD_NAME, DescriptorUtils.makeDescriptor(MethodHandler.class));
       ca.aload(0);
       bytecodeMethodResolver.getDeclaredMethod(file, ca, method);
       ca.aconstNull();
@@ -856,7 +863,7 @@ public class ProxyFactory<T>
    {
       ca.aload(0);
       ca.aload(1);
-      ca.putfield(file.getName(), "methodHandler", DescriptorUtils.makeDescriptor(MethodHandler.class));
+      ca.putfield(file.getName(), METHOD_HANDLER_FIELD_NAME, DescriptorUtils.makeDescriptor(MethodHandler.class));
       ca.returnInstruction();
    }
 
@@ -973,5 +980,82 @@ public class ProxyFactory<T>
    public static ClassLoader resolveClassLoaderForBeanProxy(Bean<?> bean)
    {
       return resolveClassLoaderForBeanProxy(bean, TypeInfo.of(bean.getTypes()));
+   }
+
+   /**
+    * Sets the invocation handler for a proxy. This method is less efficient
+    * than {@link #setInvocationHandler(Object, InvocationHandler)}, however it
+    * will work on any proxy, not just proxies from a specific factory.
+    * 
+    * @param proxy the proxy to modify
+    * @param handler the handler to use
+    */
+   public static void setInvocationHandlerStatic(Object proxy, MethodHandler handler)
+   {
+      try
+      {
+         final Field field = proxy.getClass().getDeclaredField(METHOD_HANDLER_FIELD_NAME);
+         AccessController.doPrivileged(new SetAccessiblePrivilege(field));
+         field.set(proxy, handler);
+      }
+      catch (NoSuchFieldException e)
+      {
+         throw new RuntimeException("Could not find invocation handler on generated proxy", e);
+      }
+      catch (IllegalArgumentException e)
+      {
+         throw new RuntimeException(e);
+      }
+      catch (IllegalAccessException e)
+      {
+         throw new RuntimeException(e);
+      }
+   }
+
+   /**
+    * Gets the {@link InvocationHandler} for a given proxy instance. This method
+    * is less efficient than {@link #getInvocationHandler(Object)}, however it
+    * will work for any proxy, not just proxies from a specific factory
+    * instance.
+    * 
+    * @param proxy the proxy
+    * @return the invocation handler
+    */
+   public static MethodHandler getInvocationHandler(Object proxy)
+   {
+      try
+      {
+         final Field field = proxy.getClass().getDeclaredField(METHOD_HANDLER_FIELD_NAME);
+         AccessController.doPrivileged(new SetAccessiblePrivilege(field));
+         return (MethodHandler) field.get(proxy);
+      }
+      catch (NoSuchFieldException e)
+      {
+         throw new RuntimeException("Could not find invocation handler on generated proxy", e);
+      }
+      catch (IllegalArgumentException e)
+      {
+         throw new RuntimeException("Object is not a proxy of correct type", e);
+      }
+      catch (IllegalAccessException e)
+      {
+         throw new RuntimeException(e);
+      }
+   }
+
+   private static class SetAccessiblePrivilege implements PrivilegedAction<Void>
+   {
+      private final AccessibleObject object;
+
+      public SetAccessiblePrivilege(final AccessibleObject object)
+      {
+         this.object = object;
+      }
+
+      public Void run()
+      {
+         object.setAccessible(true);
+         return null;
+      }
    }
 }
