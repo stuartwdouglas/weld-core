@@ -33,12 +33,12 @@ import org.jboss.classfilewriter.AccessFlag;
 import org.jboss.classfilewriter.ClassFile;
 import org.jboss.classfilewriter.ClassMethod;
 import org.jboss.classfilewriter.code.CodeAttribute;
+import org.jboss.classfilewriter.util.DescriptorUtils;
 import org.jboss.interceptor.util.proxy.TargetInstanceProxy;
 import org.jboss.weld.exceptions.WeldException;
 import org.jboss.weld.injection.FieldInjectionPoint;
 import org.jboss.weld.injection.ParameterInjectionPoint;
 import org.jboss.weld.injection.WeldInjectionPoint;
-import org.jboss.weld.util.bytecode.DescriptorUtils;
 import org.jboss.weld.util.bytecode.MethodInformation;
 import org.jboss.weld.util.bytecode.RuntimeMethodInformation;
 import org.jboss.weld.util.bytecode.StaticMethodInformation;
@@ -91,7 +91,7 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
       StaticMethodInformation methodInfo = new StaticMethodInformation("_initMH", new Class[] { Object.class }, void.class, proxyClassType.getName());
       invokeMethodHandler(proxyClassType, ca, methodInfo, false, DEFAULT_METHOD_RESOLVER);
       ca.checkcast("javassist/util/proxy/MethodHandler");
-      ca.putfield(proxyClassType.getName(), "methodHandler", DescriptorUtils.classToStringRepresentation(MethodHandler.class));
+      ca.putfield(proxyClassType.getName(), "methodHandler", DescriptorUtils.makeDescriptor(MethodHandler.class));
       ca.returnInstruction();
       log.trace("Created MH initializer body for decorator proxy:  " + getBeanType());
    }
@@ -159,7 +159,7 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
          // Call the corresponding method directly on the delegate
          // load the delegate field
          ca.aload(0);
-         ca.getfield(file.getName(), delegateField.getName(), DescriptorUtils.classToStringRepresentation(delegateField.getType()));
+         ca.getfield(file.getName(), delegateField.getName(), DescriptorUtils.makeDescriptor(delegateField.getType()));
          // load the parameters
          ca.loadMethodParameters();
          // invoke the delegate method

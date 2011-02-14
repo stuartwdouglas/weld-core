@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -17,6 +17,8 @@
 package org.jboss.weld.util.bytecode;
 
 import java.lang.reflect.Method;
+
+import org.jboss.classfilewriter.util.DescriptorUtils;
 
 /**
  * Contains all the data that is needed when working with a method in bytecode
@@ -35,9 +37,9 @@ public class RuntimeMethodInformation implements MethodInformation
    public RuntimeMethodInformation(Method method)
    {
       this.method = method;
-      this.parameterTypes = DescriptorUtils.getParameterTypes(method);
-      this.returnType = DescriptorUtils.classToStringRepresentation(method.getReturnType());
-      this.descriptor = DescriptorUtils.getMethodDescriptor(parameterTypes, returnType);
+      this.parameterTypes = DescriptorUtils.parameterDescriptors(method);
+      this.returnType = DescriptorUtils.makeDescriptor(method.getReturnType());
+      this.descriptor = DescriptorUtils.methodDescriptor(parameterTypes, returnType);
       this.declaringClass = method.getDeclaringClass().getName();
    }
 
