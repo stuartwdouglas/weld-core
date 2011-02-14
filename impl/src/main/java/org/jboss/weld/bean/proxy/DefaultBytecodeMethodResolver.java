@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -17,11 +17,9 @@
 
 package org.jboss.weld.bean.proxy;
 
-import javassist.bytecode.Bytecode;
-import javassist.bytecode.ClassFile;
-import javassist.bytecode.Opcode;
-
-import org.jboss.weld.util.bytecode.BytecodeUtils;
+import org.jboss.classfilewriter.ClassFile;
+import org.jboss.classfilewriter.code.CodeAttribute;
+import org.jboss.weld.util.bytecode.MethodInformation;
 
 /**
  * A {@link BytecodeMethodResolver} that looks up the method using the
@@ -35,25 +33,25 @@ import org.jboss.weld.util.bytecode.BytecodeUtils;
 public class DefaultBytecodeMethodResolver implements BytecodeMethodResolver
 {
 
-   public void getDeclaredMethod(ClassFile file, Bytecode code, String declaringClass, String methodName, String[] parameterTypes)
+   public void getDeclaredMethod(ClassFile file, CodeAttribute ca, MethodInformation methodInfomation)
    {
-      BytecodeUtils.pushClassType(code, declaringClass);
+      ca.loadType(methodInfomation.getDeclaringClass());
       // now we have the class on the stack
-      code.addLdc(methodName);
+      ca.ldc(methodInfomation.getName());
       // now we need to load the parameter types into an array
-      code.addIconst(parameterTypes.length);
-      code.addAnewarray("java.lang.Class");
-      for (int i = 0; i < parameterTypes.length; ++i)
+      ca.iconst(methodInfomation.getParameterTypes().length);
+      ca.anewarray("java.lang.Class");
+      for (int i = 0; i < methodInfomation.getParameterTypes().length; ++i)
       {
-         code.add(Opcode.DUP); // duplicate the array reference
-         code.addIconst(i);
+         ca.dup(); // duplicate the array reference
+         ca.iconst(i);
          // now load the class object
-         String type = parameterTypes[i];
-         BytecodeUtils.pushClassType(code, type);
+         String type = methodInfomation.getParameterTypes()[i];
+         ca.loadType(type);
          // and store it in the array
-         code.add(Opcode.AASTORE);
+         ca.aastore();
       }
-      code.addInvokevirtual("java.lang.Class", "getDeclaredMethod", "(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;");
+      ca.invokevirtual("java.lang.Class", "getDeclaredMethod", "(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;");
    }
 
 }

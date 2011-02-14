@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -19,14 +19,12 @@ package org.jboss.weld.bean.proxy;
 
 import java.lang.reflect.Method;
 
-import javassist.bytecode.AccessFlag;
-import javassist.bytecode.ClassFile;
-
 import javax.enterprise.inject.spi.Bean;
 
+import org.jboss.classfilewriter.AccessFlag;
+import org.jboss.classfilewriter.ClassFile;
 import org.jboss.weld.exceptions.WeldException;
 import org.jboss.weld.util.bytecode.MethodInformation;
-import org.jboss.weld.util.bytecode.MethodUtils;
 import org.jboss.weld.util.bytecode.RuntimeMethodInformation;
 
 /**
@@ -61,13 +59,13 @@ public class EnterpriseProxyFactory<T> extends ProxyFactory<T>
          {
             log.trace("Adding method " + method);
             MethodInformation methodInfo = new RuntimeMethodInformation(method);
-            proxyClassType.addMethod(MethodUtils.makeMethod(AccessFlag.PUBLIC, methodInfo, method.getExceptionTypes(), createInterceptorBody(proxyClassType, methodInfo), proxyClassType.getConstPool()));
+            createInterceptorBody(proxyClassType, addMethod(proxyClassType, AccessFlag.PUBLIC, methodInfo).getCodeAttribute(), methodInfo);
          }
       }
       catch (Exception e)
       {
          throw new WeldException(e);
       }
-
    }
+
 }

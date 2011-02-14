@@ -72,6 +72,7 @@
 
 
    <properties>
+      <classfilewriter.version>1.0.0.Alpha4</classfilewriter.version>
       <glassfish.el.version>2.1.2-b04</glassfish.el.version>
       <log4j.version>1.2.14</log4j.version>
       <!-- Testing deps -->
@@ -158,7 +159,7 @@
             <artifactId>arquillian-junit</artifactId>
             <version>${arquillian.version}</version>
          </dependency>
-	
+
          <dependency>
             <groupId>org.jboss.weld.arquillian.container</groupId>
             <artifactId>arquillian-weld-ee-embedded-1.1</artifactId>
@@ -176,7 +177,7 @@
             <artifactId>arquillian-jbossas-remote-6</artifactId>
             <version>${arquillian.version}</version>
          </dependency>
-         
+
          <dependency>
             <groupId>org.jboss.arquillian.container</groupId>
             <artifactId>arquillian-tomcat-embedded-6</artifactId>
@@ -211,6 +212,12 @@
             <groupId>org.jboss.as</groupId>
             <artifactId>jboss-as-arquillian-container-remote</artifactId>
             <version>${jbossas7.version}</version>
+         </dependency>
+
+         <dependency>
+            <groupId>org.jboss.classfilewriter</groupId>
+            <artifactId>jboss-classfilewriter</artifactId>
+            <version>${classfilewriter.version}</version>
          </dependency>
 
          <dependency>
