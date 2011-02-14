@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -20,13 +20,12 @@ package org.jboss.weld.injection;
 import java.lang.annotation.Annotation;
 import java.util.List;
 
-import javassist.util.proxy.ProxyObject;
-
 import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.inject.spi.Bean;
 
 import org.jboss.weld.bean.proxy.CombinedInterceptorAndDecoratorStackMethodHandler;
 import org.jboss.weld.bean.proxy.DecoratorProxyFactory;
+import org.jboss.weld.bean.proxy.ProxyFactory;
 import org.jboss.weld.bean.proxy.TargetBeanInstance;
 import org.jboss.weld.introspector.WeldConstructor;
 import org.jboss.weld.manager.BeanManagerImpl;
@@ -90,10 +89,7 @@ public class ProxyClassConstructorInjectionPointWrapper<T> extends ConstructorIn
       }
       else
       {
-         if (instance instanceof ProxyObject)
-         {
-            ((ProxyObject) instance).setHandler(new CombinedInterceptorAndDecoratorStackMethodHandler());
-         }
+         ProxyFactory.setInvocationHandlerStatic(instance, new CombinedInterceptorAndDecoratorStackMethodHandler());
       }
        return instance;
    }
