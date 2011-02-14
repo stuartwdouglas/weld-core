@@ -17,13 +17,13 @@
 
 package org.jboss.weld.bean.proxy;
 
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.Set;
 
 import javassist.NotFoundException;
-import javassist.util.proxy.MethodHandler;
 
 import javax.enterprise.inject.spi.Bean;
 
@@ -216,7 +216,7 @@ public class InterceptedSubclassFactory<T> extends ProxyFactory<T>
       // primitive
       // add an appropriate return instruction
       ca.aload(0);
-      ca.getfield(file.getName(), "methodHandler", DescriptorUtils.makeDescriptor(MethodHandler.class));
+      ca.getfield(file.getName(), METHOD_HANDLER_FIELD_NAME, DescriptorUtils.makeDescriptor(InvocationHandler.class));
 
       // this is a self invocation optimisation
       // test to see if this is a self invocation, and if so invokespecial the
@@ -240,6 +240,11 @@ public class InterceptedSubclassFactory<T> extends ProxyFactory<T>
       ca.aload(0);
       bytecodeMethodResolver.getDeclaredMethod(file, ca, methodInfo);
 
+      ca.iconst(methodInfo.getParameterTypes().length + 1);
+      ca.anewarray("java.lang.Object");
+      ca.dup();
+      ca.iconst(0);
+
       if (addProceed)
       {
          StaticMethodInformation superMethodInfo = new StaticMethodInformation(methodInfo.getName() + SUPER_DELEGATE_SUFFIX, methodInfo.getParameterTypes(), methodInfo.getReturnType(), file.getName());
@@ -250,8 +255,7 @@ public class InterceptedSubclassFactory<T> extends ProxyFactory<T>
          ca.aconstNull();
       }
 
-      ca.iconst(methodInfo.getParameterTypes().length);
-      ca.anewarray("java.lang.Object");
+      ca.aastore();
 
       int localVariableCount = 1;
 
@@ -259,7 +263,7 @@ public class InterceptedSubclassFactory<T> extends ProxyFactory<T>
       {
          String typeString = methodInfo.getParameterTypes()[i];
          ca.dup(); // duplicate the array reference
-         ca.iconst(i);
+         ca.iconst(i + 1);
          // load the parameter value
          ca.load(typeString, localVariableCount);
          // box the parameter if nessesary
@@ -277,7 +281,7 @@ public class InterceptedSubclassFactory<T> extends ProxyFactory<T>
       }
       // now we have all our arguments on the stack
       // lets invoke the method
-      ca.invokeinterface(MethodHandler.class.getName(), "invoke", "(Ljava/lang/Object;Ljava/lang/reflect/Method;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;");
+      ca.invokeinterface(InvocationHandler.class.getName(), "invoke", "(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;");
       if (addReturnInstruction)
       {
          // now we need to return the appropriate type
@@ -324,32 +328,11 @@ public class InterceptedSubclassFactory<T> extends ProxyFactory<T>
          generateGetTargetInstance(proxyClassType);
          generateGetTargetClass(proxyClassType);
 
-         generateSetMethodHandler(proxyClassType);
-         generateGetMethodHandler(proxyClassType);
       }
       catch (Exception e)
       {
          throw new WeldException(e);
       }
-   }
-
-   private static void generateGetMethodHandler(ClassFile proxyClassType)
-   {
-      ClassMethod classMethod = proxyClassType.addMethod(AccessFlag.PUBLIC, "getHandler", DescriptorUtils.makeDescriptor(MethodHandler.class));
-      CodeAttribute ca = classMethod.getCodeAttribute();
-      ca.aload(0);
-      ca.getfield(proxyClassType.getName(), "methodHandler", DescriptorUtils.makeDescriptor(MethodHandler.class));
-      ca.returnInstruction();
-   }
-
-   private static void generateSetMethodHandler(ClassFile proxyClassType)
-   {
-      ClassMethod classMethod = proxyClassType.addMethod(AccessFlag.PUBLIC, "setHandler", "V", DescriptorUtils.makeDescriptor(MethodHandler.class));
-      CodeAttribute ca = classMethod.getCodeAttribute();
-      ca.aload(0);
-      ca.aload(1);
-      ca.putfield(proxyClassType.getName(), "methodHandler", DescriptorUtils.makeDescriptor(MethodHandler.class));
-      ca.returnInstruction();
    }
 
    private static void generateGetTargetInstance(ClassFile proxyClassType)

@@ -4,8 +4,10 @@ import static org.jboss.weld.bean.proxy.InterceptionDecorationContext.endInterce
 import static org.jboss.weld.bean.proxy.InterceptionDecorationContext.startInterceptorContext;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Set;
 
 import javassist.util.proxy.MethodHandler;
@@ -17,7 +19,7 @@ import org.jboss.weld.util.reflection.SecureReflections;
  *
  * @author Marius Bogoevici
  */
-public class CombinedInterceptorAndDecoratorStackMethodHandler implements MethodHandler, Serializable
+public class CombinedInterceptorAndDecoratorStackMethodHandler implements MethodHandler, Serializable, InvocationHandler
 {
 
    private MethodHandler interceptorMethodHandler;
@@ -106,5 +108,11 @@ public class CombinedInterceptorAndDecoratorStackMethodHandler implements Method
       return getDisabledHandlers().contains(this);
    }
 
+   public Object invoke(Object arg0, Method arg1, Object[] arg2) throws Throwable
+   {
+      Method proceed = (Method) arg2[0];
+      Object[] params = Arrays.copyOfRange(arg2, 1, arg2.length);
+      return invoke(arg0, arg1, proceed, params);
+   }
 
 }

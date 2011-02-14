@@ -18,6 +18,7 @@
 package org.jboss.weld.bean.proxy;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
@@ -25,7 +26,6 @@ import java.util.Collections;
 import java.util.Set;
 
 import javassist.NotFoundException;
-import javassist.util.proxy.MethodHandler;
 
 import javax.enterprise.inject.spi.Bean;
 
@@ -90,8 +90,8 @@ public class DecoratorProxyFactory<T> extends ProxyFactory<T>
       ca.aload(0);
       StaticMethodInformation methodInfo = new StaticMethodInformation("_initMH", new Class[] { Object.class }, void.class, proxyClassType.getName());
       invokeMethodHandler(proxyClassType, ca, methodInfo, false, DEFAULT_METHOD_RESOLVER);
-      ca.checkcast("javassist/util/proxy/MethodHandler");
-      ca.putfield(proxyClassType.getName(), "methodHandler", DescriptorUtils.makeDescriptor(MethodHandler.class));
+      ca.checkcast("java/lang/reflect/InvocationHandler");
+      ca.putfield(proxyClassType.getName(), METHOD_HANDLER_FIELD_NAME, DescriptorUtils.makeDescriptor(InvocationHandler.class));
       ca.returnInstruction();
       log.trace("Created MH initializer body for decorator proxy:  " + getBeanType());
    }

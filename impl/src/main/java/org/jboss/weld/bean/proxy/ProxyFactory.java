@@ -42,7 +42,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 import javassist.NotFoundException;
-import javassist.util.proxy.MethodHandler;
 
 import javax.enterprise.inject.spi.Bean;
 
@@ -433,7 +432,7 @@ public class ProxyFactory<T>
       {
          // The field representing the underlying instance or special method
          // handling
-         proxyClassType.addField(AccessFlag.PRIVATE, METHOD_HANDLER_FIELD_NAME, "Ljavassist/util/proxy/MethodHandler;");
+         proxyClassType.addField(AccessFlag.PRIVATE, METHOD_HANDLER_FIELD_NAME, "Ljava/lang/reflect/InvocationHandler;");
          // Special field used during serialization of a proxy
          proxyClassType.addField(AccessFlag.TRANSIENT | AccessFlag.PRIVATE, FIRST_SERIALIZATION_PHASE_COMPLETE_FIELD_NAME, "Ljava/lang/ThreadLocal;");
          // field used to indicate that super() has been called
@@ -567,16 +566,15 @@ public class ProxyFactory<T>
       ca.invokevirtual("java.lang.ThreadLocal", "set", "(Ljava/lang/Object;)V");
 
       ca.aload(0);
-      ca.getfield(methodInfo.getDeclaringClass(), METHOD_HANDLER_FIELD_NAME, DescriptorUtils.makeDescriptor(MethodHandler.class));
+      ca.getfield(methodInfo.getDeclaringClass(), METHOD_HANDLER_FIELD_NAME, DescriptorUtils.makeDescriptor(InvocationHandler.class));
       ca.aload(0);
       DEFAULT_METHOD_RESOLVER.getDeclaredMethod(method.getClassFile(), ca, methodInfo);
-      ca.aconstNull();
 
-      ca.iconst(0);
+      ca.iconst(1);
       ca.anewarray("java.lang.Object");
       // now we have all our arguments on the stack
       // lets invoke the method
-      ca.invokeinterface(MethodHandler.class.getName(), "invoke", "(Ljava/lang/Object;Ljava/lang/reflect/Method;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;");
+      ca.invokeinterface(InvocationHandler.class.getName(), "invoke", "(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;");
       ca.returnInstruction();
    }
 
@@ -746,13 +744,16 @@ public class ProxyFactory<T>
       // primitive
       // add an appropriate return instruction
       ca.aload(0);
-      ca.getfield(file.getName(), METHOD_HANDLER_FIELD_NAME, DescriptorUtils.makeDescriptor(MethodHandler.class));
+      ca.getfield(file.getName(), METHOD_HANDLER_FIELD_NAME, DescriptorUtils.makeDescriptor(InvocationHandler.class));
       ca.aload(0);
       bytecodeMethodResolver.getDeclaredMethod(file, ca, method);
-      ca.aconstNull();
 
-      ca.iconst(method.getParameterTypes().length);
+      ca.iconst(method.getParameterTypes().length + 1);
       ca.anewarray("java.lang.Object");
+      ca.dup();
+      ca.iconst(0);
+      ca.aconstNull();
+      ca.aastore();
 
       int localVariableCount = 1;
 
@@ -760,7 +761,7 @@ public class ProxyFactory<T>
       {
          String typeString = method.getParameterTypes()[i];
          ca.dup(); // duplicate the array reference
-         ca.iconst(i);
+         ca.iconst(i + 1);
          // load the parameter value
          ca.load(typeString, localVariableCount);
          // box the parameter if nessesary
@@ -778,7 +779,7 @@ public class ProxyFactory<T>
       }
       // now we have all our arguments on the stack
       // lets invoke the method
-      ca.invokeinterface(MethodHandler.class.getName(), "invoke", "(Ljava/lang/Object;Ljava/lang/reflect/Method;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;");
+      ca.invokeinterface(InvocationHandler.class.getName(), "invoke", "(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;");
       if (addReturnInstruction)
       {
          // now we need to return the appropriate type
@@ -960,7 +961,7 @@ public class ProxyFactory<T>
     * @param proxy the proxy to modify
     * @param handler the handler to use
     */
-   public static void setInvocationHandlerStatic(Object proxy, MethodHandler handler)
+   public static void setInvocationHandlerStatic(Object proxy, InvocationHandler handler)
    {
       try
       {
@@ -991,13 +992,13 @@ public class ProxyFactory<T>
     * @param proxy the proxy
     * @return the invocation handler
     */
-   public static MethodHandler getInvocationHandler(Object proxy)
+   public static InvocationHandler getInvocationHandler(Object proxy)
    {
       try
       {
          final Field field = proxy.getClass().getDeclaredField(METHOD_HANDLER_FIELD_NAME);
          AccessController.doPrivileged(new SetAccessiblePrivilege(field));
-         return (MethodHandler) field.get(proxy);
+         return (InvocationHandler) field.get(proxy);
       }
       catch (NoSuchFieldException e)
       {

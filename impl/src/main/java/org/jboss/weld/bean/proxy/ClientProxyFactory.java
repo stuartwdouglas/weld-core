@@ -17,12 +17,11 @@
 
 package org.jboss.weld.bean.proxy;
 
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.Set;
-
-import javassist.util.proxy.MethodHandler;
 
 import javax.enterprise.inject.spi.Bean;
 
@@ -92,16 +91,16 @@ public class ClientProxyFactory<T> extends ProxyFactory<T>
       ca.invokestatic("org.jboss.weld.bean.proxy.InterceptionDecorationContext", "startInterceptorContext", "()V");
 
       ca.aload(0);
-      ca.getfield(proxyClassType.getName(), "methodHandler", DescriptorUtils.makeDescriptor(MethodHandler.class));
+      ca.getfield(proxyClassType.getName(), METHOD_HANDLER_FIELD_NAME, DescriptorUtils.makeDescriptor(InvocationHandler.class));
       //pass null arguments to methodHandler.invoke
       ca.aload(0);
       ca.aconstNull();
-      ca.aconstNull();
-      ca.aconstNull();
+      ca.iconst(1);
+      ca.anewarray("java.lang.Object");
 
       // now we have all our arguments on the stack
       // lets invoke the method
-      ca.invokeinterface(MethodHandler.class.getName(), "invoke", "(Ljava/lang/Object;Ljava/lang/reflect/Method;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;");
+      ca.invokeinterface(InvocationHandler.class.getName(), "invoke", "(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;");
 
       ca.checkcast(methodInfo.getDeclaringClass());
 
