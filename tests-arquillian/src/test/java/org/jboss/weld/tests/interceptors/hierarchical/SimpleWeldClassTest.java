@@ -57,7 +57,7 @@ public class SimpleWeldClassTest
    @Test
    public void testWeldClassForCovariantReturnType()
    {
-      WeldClass<Attacker> weldClass = WeldClassImpl.of(Attacker.class, new ClassTransformer(new TypeStore()));
+      WeldClass<Attacker> weldClass = WeldClassImpl.of("STATIC_INSTANCE", Attacker.class, new ClassTransformer("STATIC_INSTANCE", new TypeStore()));
       Collection<WeldMethod<?, ? super Attacker>> methods = weldClass.getWeldMethods();
       Assert.assertEquals(4, methods.size());
       List<WeldMethod<?, ?>> interceptableMethods = Beans.getInterceptableMethods(weldClass);

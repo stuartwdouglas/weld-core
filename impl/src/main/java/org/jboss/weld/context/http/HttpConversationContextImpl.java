@@ -12,6 +12,11 @@ import org.jboss.weld.context.beanstore.http.LazySessionBeanStore;
 public class HttpConversationContextImpl extends AbstractConversationContext<HttpServletRequest, HttpSession> implements HttpConversationContext
 {
 
+   public HttpConversationContextImpl(String contextId) 
+   {
+      super(contextId);
+   }
+
    @Override
    protected void setSessionAttribute(HttpServletRequest request, String name, Object value, boolean create)
    {

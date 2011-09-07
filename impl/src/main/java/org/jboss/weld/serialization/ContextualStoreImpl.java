@@ -51,9 +51,12 @@ public class ContextualStoreImpl implements ContextualStore
    private final ConcurrentMap<String, Contextual<?>> passivationCapableContextuals;
 
    private final AtomicInteger idGenerator;
+   
+   private final String contextId;
 
-   public ContextualStoreImpl()
+   public ContextualStoreImpl(String contextId)
    {
+      this.contextId = contextId;
       this.idGenerator = new AtomicInteger(0);
       this.contextuals = new ConcurrentHashMap<Contextual<?>, String>();
       this.contextualsInverse = new ConcurrentHashMap<String, Contextual<?>>();
@@ -128,12 +131,12 @@ public class ContextualStoreImpl implements ContextualStore
 
    public <C extends Contextual<I>, I> SerializableContextual<C, I> getSerializableContextual(Contextual<I> contextual)
    {
-      return new SerializableContextualImpl<C, I>(Reflections.<C>cast(contextual), this);
+      return new SerializableContextualImpl<C, I>(contextId, Reflections.<C>cast(contextual), this);
    }
 
    public <C extends Contextual<I>, I> SerializableContextualInstance<C, I> getSerializableContextualInstance(Contextual<I> contextual, I instance, CreationalContext<I> creationalContext)
    {
-      return new SerializableContextualInstanceImpl<C, I>(Reflections.<C>cast(contextual), instance, creationalContext, this);
+      return new SerializableContextualInstanceImpl<C, I>(contextId, Reflections.<C>cast(contextual), instance, creationalContext, this);
    }
 
    public void cleanup()

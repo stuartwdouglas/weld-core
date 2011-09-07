@@ -38,9 +38,9 @@ public class SharedObjectFacade
 
    }
 
-   public static <T> Set<T> wrap(Set<T> set)
+   public static <T> Set<T> wrap(String contextId, Set<T> set)
    {
-      SharedObjectCache cache = getSharedObjectCache();
+      SharedObjectCache cache = getSharedObjectCache(contextId);
       if (cache != null)
       {
          return cache.getSharedSet(set);
@@ -48,42 +48,42 @@ public class SharedObjectFacade
       return set;
    }
 
-   public static <K, V> Map<K, V> wrap(Map<K, V> map)
+   public static <K, V> Map<K, V> wrap(String contextId, Map<K, V> map)
    {
-      SharedObjectCache cache = getSharedObjectCache();
+      SharedObjectCache cache = getSharedObjectCache(contextId);
       if (cache != null)
       {
-         return Container.instance().services().get(SharedObjectCache.class).getSharedMap(map);
+         return Container.instance(contextId).services().get(SharedObjectCache.class).getSharedMap(map);
       }
       return map;
    }
 
-   public static <K, V> ArraySetMultimap<K, V> wrap(ArraySetMultimap<K, V> map)
+   public static <K, V> ArraySetMultimap<K, V> wrap(String contextId, ArraySetMultimap<K, V> map)
    {
-      SharedObjectCache cache = getSharedObjectCache();
+      SharedObjectCache cache = getSharedObjectCache(contextId);
       if (cache != null)
       {
-         return Container.instance().services().get(SharedObjectCache.class).getSharedMultimap(map);
+         return Container.instance(contextId).services().get(SharedObjectCache.class).getSharedMultimap(map);
       }
       return map;
    }
 
-   public static Set<Type> getTypeClosure(Type type)
+   public static Set<Type> getTypeClosure(String contextId, Type type)
    {
-      SharedObjectCache cache = getSharedObjectCache();
+      SharedObjectCache cache = getSharedObjectCache(contextId);
       if (cache != null)
       {
-         return Container.instance().services().get(SharedObjectCache.class).getTypeClosure(type);
+         return Container.instance(contextId).services().get(SharedObjectCache.class).getTypeClosure(type);
       }
       return new HierarchyDiscovery(type).getTypeClosure();
    }
 
    // this may return null in a test environment
-   private static SharedObjectCache getSharedObjectCache()
+   private static SharedObjectCache getSharedObjectCache(String contextId)
    {
       try
       {
-         return Container.instance().services().get(SharedObjectCache.class);
+         return Container.instance(contextId).services().get(SharedObjectCache.class);
       }
       catch (IllegalStateException e)
       {

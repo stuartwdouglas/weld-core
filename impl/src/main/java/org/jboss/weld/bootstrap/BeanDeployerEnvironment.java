@@ -75,6 +75,7 @@ public class BeanDeployerEnvironment
    private final ClassTransformer classTransformer;
    private final Set<WeldClass<?>> newManagedBeanClasses;
    private final Set<InternalEjbDescriptor<?>> newSessionBeanDescriptors;
+   private final String contextId;
 
    public BeanDeployerEnvironment(EjbDescriptors ejbDescriptors, BeanManagerImpl manager)
    {
@@ -91,6 +92,7 @@ public class BeanDeployerEnvironment
       this.classTransformer = manager.getServices().get(ClassTransformer.class);
       this.newManagedBeanClasses = new HashSet<WeldClass<?>>();
       this.newSessionBeanDescriptors = new HashSet<InternalEjbDescriptor<?>>();
+      this.contextId = manager.getContextId();
    }
 
    public Set<WeldClass<?>> getNewManagedBeanClasses()
@@ -294,7 +296,7 @@ public class BeanDeployerEnvironment
    public <X> Set<DisposalMethod<X, ?>> resolveDisposalBeans(Set<Type> types, Set<Annotation> qualifiers, AbstractClassBean<X> declaringBean)
    {
       // We can always cache as this is only ever called by Weld where we avoid non-static inner classes for annotation literals
-      Set<DisposalMethod<X, ?>> beans = cast(disposalMethodResolver.resolve(new ResolvableBuilder().addTypes(types).addQualifiers(qualifiers).setDeclaringBean(declaringBean).create(), true));
+      Set<DisposalMethod<X, ?>> beans = cast(disposalMethodResolver.resolve(new ResolvableBuilder(contextId).addTypes(types).addQualifiers(qualifiers).setDeclaringBean(declaringBean).create(), true));
       resolvedDisposalBeans.addAll(beans);
       return Collections.unmodifiableSet(beans);
    }

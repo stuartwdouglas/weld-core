@@ -23,6 +23,11 @@ import org.jboss.weld.context.ApplicationContext;
 
 public class ApplicationContextImpl extends AbstractSharedContext implements ApplicationContext
 {
+    
+   public ApplicationContextImpl(String contextId)
+   {
+      super(contextId);
+   }
    
    public Class<ApplicationScoped> getScope()
    {

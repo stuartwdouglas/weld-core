@@ -54,17 +54,19 @@ public class ResolvableBuilder
    protected final Set<Annotation> qualifiers;
    protected final Map<Class<? extends Annotation>, Annotation> mappedQualifiers;
    protected Bean<?> declaringBean;
+   protected final String contextId;
 
-   public ResolvableBuilder()
+   public ResolvableBuilder(String contextId)
    {
       this.types = new HashSet<Type>();
       this.qualifiers = new HashSet<Annotation>();
       this.mappedQualifiers = new HashMap<Class<? extends Annotation>, Annotation>();
+      this.contextId = contextId;
    }
 
-   public ResolvableBuilder(Type type)
+   public ResolvableBuilder(String contextId, Type type)
    {
-      this();
+      this(contextId);
       if (type != null)
       {
          this.rawType = Reflections.getRawType(type);
@@ -76,9 +78,9 @@ public class ResolvableBuilder
       }
    }
 
-   public ResolvableBuilder(InjectionPoint injectionPoint)
+   public ResolvableBuilder(String contextId, InjectionPoint injectionPoint)
    {
-      this(injectionPoint.getType());
+      this(contextId, injectionPoint.getType());
       addQualifiers(injectionPoint.getQualifiers());
       if (mappedQualifiers.containsKey(Named.class) && injectionPoint.getMember() instanceof Field)
       {
@@ -206,7 +208,7 @@ public class ResolvableBuilder
 
    protected void checkQualifier(Annotation qualifier)
    {
-      if (!Container.instance().services().get(MetaAnnotationStore.class).getBindingTypeModel(qualifier.annotationType()).isValid())
+      if (!Container.instance(contextId).services().get(MetaAnnotationStore.class).getBindingTypeModel(qualifier.annotationType()).isValid())
       {
          throw new IllegalArgumentException(INVALID_QUALIFIER, qualifier);
       }

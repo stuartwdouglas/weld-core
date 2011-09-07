@@ -114,7 +114,7 @@ public abstract class AbstractClassBean<T> extends AbstractBean<T, Class<T>>
       for (Interceptor<?> interceptor : interceptors)
       {
 
-         SerializableContextualImpl<Interceptor<?>, ?> contextual = new SerializableContextualImpl(interceptor, getServices().get(ContextualStore.class));
+         SerializableContextualImpl<Interceptor<?>, ?> contextual = new SerializableContextualImpl(getBeanManager().getContextId(), interceptor, getServices().get(ContextualStore.class));
          serializableContextuals.add(beanManager.getInterceptorMetadataReader().getInterceptorMetadata(new SerializableContextualInterceptorReference(contextual, beanManager.getInterceptorMetadataReader().getClassMetadata(interceptor.getBeanClass()))));
       }
       return serializableContextuals.toArray(AbstractClassBean.<SerializableContextual<?, ?>>emptyInterceptorMetadataArray());
@@ -340,8 +340,8 @@ public abstract class AbstractClassBean<T> extends AbstractBean<T, Class<T>>
    protected T applyDecorators(T instance, CreationalContext<T> creationalContext, InjectionPoint originalInjectionPoint)
    {
       TargetBeanInstance beanInstance = new TargetBeanInstance(this, instance);
-      ProxyFactory<T> proxyFactory = new ProxyFactory<T>(getType(), getTypes(), this);
-      DecorationHelper<T> decorationHelper = new DecorationHelper<T>(beanInstance, this, proxyFactory.getProxyClass(), beanManager, getServices().get(ContextualStore.class), decorators);
+      ProxyFactory<T> proxyFactory = new ProxyFactory<T>(getBeanManager().getContextId(), getType(), getTypes(), this);
+      DecorationHelper<T> decorationHelper = new DecorationHelper<T>(getBeanManager().getContextId(), beanInstance, this, proxyFactory.getProxyClass(), beanManager, getServices().get(ContextualStore.class), decorators);
       DecorationHelper.getHelperStack().push(decorationHelper);
       final T outerDelegate = decorationHelper.getNextDelegate(originalInjectionPoint, creationalContext);
       DecorationHelper.getHelperStack().pop();
@@ -372,7 +372,7 @@ public abstract class AbstractClassBean<T> extends AbstractBean<T, Class<T>>
     */
    protected void initInjectableFields()
    {
-      injectableFields = Beans.getFieldInjectionPoints(this, annotatedItem);
+      injectableFields = Beans.getFieldInjectionPoints(beanManager.getContextId(), this, annotatedItem);
       addInjectionPoints(Beans.getFieldInjectionPoints(this, injectableFields));
    }
 
@@ -381,8 +381,8 @@ public abstract class AbstractClassBean<T> extends AbstractBean<T, Class<T>>
     */
    protected void initInitializerMethods()
    {
-      initializerMethods = Beans.getInitializerMethods(this, getWeldAnnotated());
-      addInjectionPoints(Beans.getParameterInjectionPoints(this, initializerMethods));
+      initializerMethods = Beans.getInitializerMethods(beanManager.getContextId(), this, getWeldAnnotated());
+      addInjectionPoints(Beans.getParameterInjectionPoints(beanManager.getContextId(), this, initializerMethods));
    }
 
    @Override
@@ -607,8 +607,8 @@ public abstract class AbstractClassBean<T> extends AbstractBean<T, Class<T>>
     */
    protected void initConstructor()
    {
-      this.constructor = Beans.getBeanConstructor(this, getWeldAnnotated());
-      addInjectionPoints(Beans.getParameterInjectionPoints(this, constructor));
+      this.constructor = Beans.getBeanConstructor(beanManager.getContextId(), this, getWeldAnnotated());
+      addInjectionPoints(Beans.getParameterInjectionPoints(beanManager.getContextId(), this, constructor));
    }
 
    /**
@@ -629,7 +629,7 @@ public abstract class AbstractClassBean<T> extends AbstractBean<T, Class<T>>
     protected void initEnhancedSubclass()
     {
         enhancedSubclass = beanManager.getServices().get(ClassTransformer.class).loadClass(createEnhancedSubclass());
-        constructorForEnhancedSubclass = WeldConstructorImpl.of(
+        constructorForEnhancedSubclass = WeldConstructorImpl.of(getBeanManager().getContextId(),
                    enhancedSubclass.getDeclaredWeldConstructor(getConstructor().getSignature()),
                    enhancedSubclass,
                    beanManager.getServices().get(ClassTransformer.class));
@@ -642,7 +642,7 @@ public abstract class AbstractClassBean<T> extends AbstractBean<T, Class<T>>
       {
          enhancedMethodSignatures.add(new MethodSignatureImpl(method));
       }
-      return new InterceptedSubclassFactory<T>(getType(), Collections.<Type>emptySet(), this, enhancedMethodSignatures).getProxyClass();
+      return new InterceptedSubclassFactory<T>(getBeanManager().getContextId(), getType(), Collections.<Type>emptySet(), this, enhancedMethodSignatures).getProxyClass();
    }
 
 }

@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -18,20 +18,31 @@
 package org.jboss.weld.bean.proxy;
 
 import javassist.NotFoundException;
-import javassist.bytecode.*;
+import javassist.bytecode.AccessFlag;
+import javassist.bytecode.Bytecode;
+import javassist.bytecode.ClassFile;
+import javassist.bytecode.DuplicateMemberException;
+import javassist.bytecode.FieldInfo;
+import javassist.bytecode.MethodInfo;
+import javassist.bytecode.Opcode;
 import javassist.util.proxy.MethodHandler;
 import org.jboss.weld.Container;
 import org.jboss.weld.bean.proxy.util.SerializableClientProxy;
 import org.jboss.weld.context.cache.RequestScopedBeanCache;
 import org.jboss.weld.serialization.spi.ContextualStore;
-import org.jboss.weld.util.bytecode.*;
+import org.jboss.weld.util.bytecode.BytecodeUtils;
+import org.jboss.weld.util.bytecode.DescriptorUtils;
+import org.jboss.weld.util.bytecode.JumpMarker;
+import org.jboss.weld.util.bytecode.JumpUtils;
+import org.jboss.weld.util.bytecode.MethodInformation;
+import org.jboss.weld.util.bytecode.MethodUtils;
+import org.jboss.weld.util.bytecode.StaticMethodInformation;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.ConversationScoped;
 import javax.enterprise.context.RequestScoped;
 import javax.enterprise.context.SessionScoped;
 import javax.enterprise.inject.spi.Bean;
-import java.io.IOException;
 import java.io.ObjectStreamException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
@@ -69,15 +80,15 @@ public class ClientProxyFactory<T> extends ProxyFactory<T>
       CACHABLE_SCOPES = Collections.unmodifiableSet(scopes);
    }
 
-   public ClientProxyFactory(Class<?> proxiedBeanType, Set<? extends Type> typeClosure, Bean<?> bean)
+   public ClientProxyFactory(String contextId, Class<?> proxiedBeanType, Set<? extends Type> typeClosure, Bean<?> bean)
    {
-      super(proxiedBeanType, typeClosure, bean);
+      super(contextId, proxiedBeanType, typeClosure, bean);
       beanId = Container.instance().services().get(ContextualStore.class).putIfAbsent(bean);
    }
 
-   public ClientProxyFactory(Class<?> proxiedBeanType, Set<? extends Type> typeClosure, String proxyName, Bean<?> bean)
+   public ClientProxyFactory(String contextId, Class<?> proxiedBeanType, Set<? extends Type> typeClosure, String proxyName, Bean<?> bean)
    {
-      super(proxiedBeanType, typeClosure, proxyName, bean);
+      super(contextId, proxiedBeanType, typeClosure, proxyName, bean);
       beanId = Container.instance().services().get(ContextualStore.class).putIfAbsent(bean);
    }
 
@@ -127,7 +138,8 @@ public class ClientProxyFactory<T> extends ProxyFactory<T>
       b.addNew(SerializableClientProxy.class.getName());
       b.add(Opcode.DUP);
       b.addLdc(beanId);
-      b.addInvokespecial(SerializableClientProxy.class.getName(), "<init>", "(Ljava/lang/String;)V");
+      b.addLdc(getContextId());
+      b.addInvokespecial(SerializableClientProxy.class.getName(), "<init>", "(Ljava/lang/String;Ljava/lang/String;)V");
       b.add(Opcode.ARETURN);
       b.setMaxLocals(1);
       return b;

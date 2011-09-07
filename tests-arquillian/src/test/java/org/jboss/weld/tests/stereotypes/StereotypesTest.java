@@ -40,7 +40,7 @@ public class StereotypesTest
          .addPackage(StereotypesTest.class.getPackage());
    }
 
-   private final ClassTransformer transformer = new ClassTransformer(new TypeStore());
+   private final ClassTransformer transformer = new ClassTransformer("STATIC_INSTANCE", new TypeStore());
 
    @Test
    public void testAnimalStereotype()

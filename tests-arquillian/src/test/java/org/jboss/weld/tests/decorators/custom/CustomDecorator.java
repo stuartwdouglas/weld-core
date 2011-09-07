@@ -133,8 +133,8 @@ public class CustomDecorator implements Decorator<Object>
 
       public CustomInjectionPoint()
       {
-         ClassTransformer transformer = new ClassTransformer(new TypeStore());
-         targetClass = WeldClassImpl.of(CustomWindowFrame.class, transformer);
+         ClassTransformer transformer = new ClassTransformer("STATIC_INSTANCE", new TypeStore());
+         targetClass = WeldClassImpl.of("STATIC_INSTANCE", CustomWindowFrame.class, transformer);
          windowField = targetClass.getDeclaredWeldField("window");
       }
 

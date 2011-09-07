@@ -212,7 +212,7 @@ public abstract class AbstractProducerBean<X, T, S extends Member> extends Abstr
       {
          this.passivationCapableBean = true;
       }
-      if (Container.instance().services().get(MetaAnnotationStore.class).getScopeModel(getScope()).isNormal())
+      if (Container.instance(beanManager.getContextId()).services().get(MetaAnnotationStore.class).getScopeModel(getScope()).isNormal())
       {
          this.passivationCapableDependency = true;
       }
@@ -263,7 +263,7 @@ public abstract class AbstractProducerBean<X, T, S extends Member> extends Abstr
          {
             throw new IllegalProductException(NON_SERIALIZABLE_PRODUCT_ERROR, getProducer());
          }
-         InjectionPoint injectionPoint = Container.instance().services().get(CurrentInjectionPoint.class).peek();
+         InjectionPoint injectionPoint = Container.instance(beanManager.getContextId()).services().get(CurrentInjectionPoint.class).peek();
          if (injectionPoint != null && injectionPoint.getBean() != null)
          {
             if (!instanceSerializable && Beans.isPassivatingScope(injectionPoint.getBean(), beanManager))

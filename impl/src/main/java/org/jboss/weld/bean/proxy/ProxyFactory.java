@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -18,7 +18,14 @@
 package org.jboss.weld.bean.proxy;
 
 import javassist.NotFoundException;
-import javassist.bytecode.*;
+import javassist.bytecode.AccessFlag;
+import javassist.bytecode.Bytecode;
+import javassist.bytecode.ClassFile;
+import javassist.bytecode.DuplicateMemberException;
+import javassist.bytecode.ExceptionTable;
+import javassist.bytecode.FieldInfo;
+import javassist.bytecode.MethodInfo;
+import javassist.bytecode.Opcode;
 import javassist.util.proxy.MethodHandler;
 import javassist.util.proxy.ProxyObject;
 import org.jboss.interceptor.proxy.LifecycleMixin;
@@ -29,7 +36,16 @@ import org.jboss.weld.exceptions.WeldException;
 import org.jboss.weld.serialization.spi.ContextualStore;
 import org.jboss.weld.serialization.spi.ProxyServices;
 import org.jboss.weld.util.Proxies.TypeInfo;
-import org.jboss.weld.util.bytecode.*;
+import org.jboss.weld.util.bytecode.Boxing;
+import org.jboss.weld.util.bytecode.BytecodeUtils;
+import org.jboss.weld.util.bytecode.ClassFileUtils;
+import org.jboss.weld.util.bytecode.ConstructorUtils;
+import org.jboss.weld.util.bytecode.DescriptorUtils;
+import org.jboss.weld.util.bytecode.JumpMarker;
+import org.jboss.weld.util.bytecode.JumpUtils;
+import org.jboss.weld.util.bytecode.MethodInformation;
+import org.jboss.weld.util.bytecode.MethodUtils;
+import org.jboss.weld.util.bytecode.RuntimeMethodInformation;
 import org.jboss.weld.util.collections.ArraySet;
 import org.jboss.weld.util.reflection.Reflections;
 import org.jboss.weld.util.reflection.SecureReflections;
@@ -37,17 +53,23 @@ import org.jboss.weld.util.reflection.instantiation.InstantiatorFactory;
 import org.slf4j.cal10n.LocLogger;
 
 import javax.enterprise.inject.spi.Bean;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectStreamException;
 import java.io.Serializable;
-import java.lang.reflect.*;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Type;
 import java.security.ProtectionDomain;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import static org.jboss.weld.logging.Category.BEAN;
 import static org.jboss.weld.logging.LoggerFactory.loggerFactory;
-import static org.jboss.weld.logging.messages.BeanMessage.*;
+import static org.jboss.weld.logging.messages.BeanMessage.PROXY_INSTANTIATION_BEAN_ACCESS_FAILED;
+import static org.jboss.weld.logging.messages.BeanMessage.PROXY_INSTANTIATION_FAILED;
 import static org.jboss.weld.util.reflection.Reflections.cast;
 
 /**
@@ -72,6 +94,7 @@ public class ProxyFactory<T>
    private final ClassLoader classLoader;
    private final String baseProxyName;
    private final Bean<?> bean;
+   private final String contextId;
 
    public static final String CONSTRUCTED_FLAG_NAME = "constructed";
 
@@ -82,9 +105,9 @@ public class ProxyFactory<T>
     * generated from the bean id
     *
     */
-   public ProxyFactory(Class<?> proxiedBeanType, Set<? extends Type> typeClosure, Bean<?> bean)
+   public ProxyFactory(String contextId, Class<?> proxiedBeanType, Set<? extends Type> typeClosure, Bean<?> bean)
    {
-      this(proxiedBeanType, typeClosure, getProxyName(proxiedBeanType, typeClosure, bean), bean);
+      this(contextId, proxiedBeanType, typeClosure, getProxyName(contextId, proxiedBeanType, typeClosure, bean), bean);
    }
 
    /**
@@ -96,9 +119,10 @@ public class ProxyFactory<T>
     * @param proxyName the name of the proxy class
     *
     */
-   public ProxyFactory(Class<?> proxiedBeanType, Set<? extends Type> typeClosure, String proxyName, Bean<?> bean)
+   public ProxyFactory(String contextId, Class<?> proxiedBeanType, Set<? extends Type> typeClosure, String proxyName, Bean<?> bean)
    {
       this.bean = bean;
+      this.contextId = contextId;
       for (Type type : typeClosure)
       {
          Class<?> c = Reflections.getRawType(type);
@@ -120,10 +144,10 @@ public class ProxyFactory<T>
       this.beanType = superClass;
       addDefaultAdditionalInterfaces();
       baseProxyName = proxyName;
-      this.classLoader = resolveClassLoaderForBeanProxy(bean, typeInfo);
+      this.classLoader = resolveClassLoaderForBeanProxy(contextId, bean, typeInfo);
    }
 
-   static String getProxyName(Class<?> proxiedBeanType, Set<? extends Type> typeClosure, Bean<?> bean)
+   static String getProxyName(String contextId, Class<?> proxiedBeanType, Set<? extends Type> typeClosure, Bean<?> bean)
    {
       TypeInfo typeInfo = TypeInfo.of(typeClosure);
       String proxyPackage;
@@ -156,7 +180,7 @@ public class ProxyFactory<T>
       {
          final StringBuilder name = new StringBuilder();
          //interface only bean.
-         className = createCompoundProxyName(bean, typeInfo, name) + PROXY_SUFFIX;
+         className = createCompoundProxyName(contextId, bean, typeInfo, name) + PROXY_SUFFIX;
       } else
       {
          boolean typeModified = false;
@@ -174,7 +198,7 @@ public class ProxyFactory<T>
             //which can happen with some creative use of the SPI
             //interface only bean.
             StringBuilder name = new StringBuilder(typeInfo.getSuperClass().getSimpleName() + "$");
-            className = createCompoundProxyName(bean, typeInfo, name) + PROXY_SUFFIX;
+            className = createCompoundProxyName(contextId, bean, typeInfo, name) + PROXY_SUFFIX;
          } else {
             className = typeInfo.getSuperClass().getSimpleName() + PROXY_SUFFIX;
          }
@@ -184,7 +208,7 @@ public class ProxyFactory<T>
       return proxyPackage + '.' + className;
    }
 
-   private static String createCompoundProxyName(Bean<?> bean, TypeInfo typeInfo, StringBuilder name)
+   private static String createCompoundProxyName(String contextId, Bean<?> bean, TypeInfo typeInfo, StringBuilder name)
    {
       String className;
       final List<String> interfaces = new ArrayList<String>();
@@ -201,7 +225,7 @@ public class ProxyFactory<T>
       //there is a remote chance that this could generate the same
       //proxy name for two interfaces with the same simple name.
       //append the hash code of the bean id to be sure
-      final String id = Container.instance().services().get(ContextualStore.class).putIfAbsent(bean);
+      final String id = Container.instance(contextId).services().get(ContextualStore.class).putIfAbsent(bean);
       name.append(id.hashCode());
       className = name.toString();
       return className;
@@ -210,7 +234,7 @@ public class ProxyFactory<T>
    /**
     * Adds an additional interface that the proxy should implement. The default
     * implementation will be to forward invocations to the bean instance.
-    * 
+    *
     * @param newInterface an interface
     */
    public void addInterface(Class<?> newInterface)
@@ -224,10 +248,10 @@ public class ProxyFactory<T>
 
    /**
     * Method to create a new proxy that wraps the bean instance.
-    * 
+    *
     * @return a new proxy object
     */
-   
+
    public T create(BeanInstance beanInstance)
    {
       T proxy = null;
@@ -251,13 +275,13 @@ public class ProxyFactory<T>
       {
          throw new DefinitionException(PROXY_INSTANTIATION_BEAN_ACCESS_FAILED, e, this);
       }
-      ((ProxyObject) proxy).setHandler(new ProxyMethodHandler(beanInstance, bean));
+      ((ProxyObject) proxy).setHandler(new ProxyMethodHandler(contextId, beanInstance, bean));
       return proxy;
    }
 
    /**
     * Produces or returns the existing proxy class.
-    * 
+    *
     * @return always the class of the proxy
     */
    public Class<T> getProxyClass()
@@ -296,7 +320,7 @@ public class ProxyFactory<T>
 
    /**
     * Returns the package and base name for the proxy class.
-    * 
+    *
     * @return base name without suffixes
     */
    protected String getBaseProxyName()
@@ -307,7 +331,7 @@ public class ProxyFactory<T>
    /**
     * Convenience method to determine if an object is a proxy generated by this
     * factory or any derived factory.
-    * 
+    *
     * @param proxySuspect the object suspected of being a proxy
     * @return true only if it is a proxy object
     */
@@ -318,16 +342,16 @@ public class ProxyFactory<T>
 
    /**
     * Convenience method to set the underlying bean instance for a proxy.
-    * 
+    *
     * @param proxy the proxy instance
     * @param beanInstance the instance of the bean
     */
-   public static <T> void setBeanInstance(T proxy, BeanInstance beanInstance, Bean<?> bean)
+   public static <T> void setBeanInstance(String contextId, T proxy, BeanInstance beanInstance, Bean<?> bean)
    {
       if (proxy instanceof ProxyObject)
       {
          ProxyObject proxyView = (ProxyObject) proxy;
-         proxyView.setHandler(new ProxyMethodHandler(beanInstance, bean));
+         proxyView.setHandler(new ProxyMethodHandler(contextId, beanInstance, bean));
       }
    }
 
@@ -335,7 +359,7 @@ public class ProxyFactory<T>
     * Returns a suffix to append to the name of the proxy class. The name
     * already consists of <class-name>_$$_Weld, to which the suffix is added.
     * This allows the creation of different types of proxies for the same class.
-    * 
+    *
     * @return a name suffix
     */
    protected String getProxyNameSuffix()
@@ -411,7 +435,7 @@ public class ProxyFactory<T>
    /**
     * Adds a constructor for the proxy for each constructor declared by the base
     * bean type.
-    * 
+    *
     * @param proxyClassType the Javassist class for the proxy
     * @param initialValueBytecode
     */
@@ -560,7 +584,7 @@ public class ProxyFactory<T>
     * If this method returns null, the method will not be added, and the
     * hashCode on the superclass will be used as per normal virtual method
     * resolution rules
-    * 
+    *
     */
    protected MethodInfo generateHashCodeMethod(ClassFile proxyClassType)
    {
@@ -595,7 +619,7 @@ public class ProxyFactory<T>
     * <p>
     * This means that the proxy will not start to delegate to the underlying
     * bean instance until after the constructor has finished.
-    * 
+    *
     */
    protected Bytecode addConstructedGuardToMethodBody(ClassFile proxyClassType, Bytecode existingMethod, MethodInformation method)
    {
@@ -650,11 +674,11 @@ public class ProxyFactory<T>
    /**
     * Creates the given method on the proxy class where the implementation
     * forwards the call directly to the method handler.
-    * 
+    *
     * the generated bytecode is equivalent to:
-    * 
+    *
     * return (RetType) methodHandler.invoke(this,param1,param2);
-    * 
+    *
     * @param file the class file
     * @param method any JLR method
     * @return the method byte code
@@ -771,7 +795,7 @@ public class ProxyFactory<T>
    /**
     * Adds methods requiring special implementations rather than just
     * delegation.
-    * 
+    *
     * @param proxyClassType the Javassist class description for the proxy type
     */
    protected void addSpecialMethods(ClassFile proxyClassType)
@@ -818,10 +842,10 @@ public class ProxyFactory<T>
    /**
     * Adds two constructors to the class that call each other in order to bypass
     * the JVM class file verifier.
-    * 
+    *
     * This would result in a stack overflow if they were actually called,
     * however the proxy is directly created without calling the constructor
-    * 
+    *
     */
    private void addConstructorsForBeanWithPrivateConstructors(ClassFile proxyClassType)
    {
@@ -869,28 +893,35 @@ public class ProxyFactory<T>
       return bean;
    }
 
+   public String getContextId()
+   {
+      return contextId;
+   }
+
    /**
     * Figures out the correct class loader to use for a proxy for a given bean
-    * 
+    *
     */
-   public static ClassLoader resolveClassLoaderForBeanProxy(Bean<?> bean, TypeInfo typeInfo)
+   public static ClassLoader resolveClassLoaderForBeanProxy(String contextId, Bean<?> bean, TypeInfo typeInfo)
    {
       Class<?> superClass = typeInfo.getSuperClass();
       if (superClass.getName().startsWith("java"))
       {
-         ClassLoader cl = Container.instance().services().get(ProxyServices.class).getClassLoader(bean.getBeanClass());
+         ClassLoader cl = Container.instance(contextId).services().get(ProxyServices.class).getClassLoader(bean.getBeanClass());
          if (cl == null)
          {
             cl = Thread.currentThread().getContextClassLoader();
          }
          return cl;
       }
-      return Container.instance().services().get(ProxyServices.class).getClassLoader(superClass);
+      return Container.instance(contextId).services().get(ProxyServices.class).getClassLoader(superClass);
    }
 
-   public static ClassLoader resolveClassLoaderForBeanProxy(Bean<?> bean)
+   public static ClassLoader resolveClassLoaderForBeanProxy(String contextId, Bean<?> bean)
    {
-      return resolveClassLoaderForBeanProxy(bean, TypeInfo.of(bean.getTypes()));
+      return resolveClassLoaderForBeanProxy(contextId, bean, TypeInfo.of(bean.getTypes()));
    }
+
+
 
 }

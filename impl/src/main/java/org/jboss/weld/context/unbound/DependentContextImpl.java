@@ -44,10 +44,13 @@ public class DependentContextImpl implements DependentContext
 {
    
    private final ContextualStore contextualStore;
+   
+   private final String contextId;
 
-   public DependentContextImpl(ContextualStore contextualStore)
+   public DependentContextImpl(String contextId, ContextualStore contextualStore)
    {
       this.contextualStore = contextualStore;
+      this.contextId = contextId;
    }
 
    /**
@@ -68,7 +71,7 @@ public class DependentContextImpl implements DependentContext
          if (creationalContext instanceof WeldCreationalContext<?>)
          {
             WeldCreationalContext<T> creationalContextImpl = (WeldCreationalContext<T>) creationalContext;
-            ContextualInstance<T> beanInstance = new SerializableContextualInstanceImpl<Contextual<T>, T>(contextual, instance, creationalContext, contextualStore);
+            ContextualInstance<T> beanInstance = new SerializableContextualInstanceImpl<Contextual<T>, T>(contextId, contextual, instance, creationalContext, contextualStore);
             creationalContextImpl.addDependentInstance(beanInstance);
          }
          return instance;

@@ -260,7 +260,7 @@ public class SessionBean<T> extends AbstractClassBean<T>
 
    protected void initProxyClass()
    {
-      this.proxyClass = new EnterpriseProxyFactory<T>(getWeldAnnotated().getJavaClass(), this).getProxyClass();
+      this.proxyClass = new EnterpriseProxyFactory<T>(getBeanManager().getContextId(), getWeldAnnotated().getJavaClass(), this).getProxyClass();
    }
 
    /**
@@ -337,7 +337,7 @@ public class SessionBean<T> extends AbstractClassBean<T>
       {
          T instance = SecureReflections.newInstance(proxyClass);
          creationalContext.push(instance);
-         ProxyFactory.setBeanInstance(instance, new EnterpriseTargetBeanInstance(getWeldAnnotated().getJavaClass(), new EnterpriseBeanProxyMethodHandler<T>(SessionBean.this, creationalContext)), this);
+         ProxyFactory.setBeanInstance(getBeanManager().getContextId(), instance, new EnterpriseTargetBeanInstance(getWeldAnnotated().getJavaClass(), new EnterpriseBeanProxyMethodHandler<T>(SessionBean.this, creationalContext)), this);
          if (hasDecorators())
          {
             instance = applyDecorators(instance, creationalContext, null);
@@ -365,8 +365,8 @@ public class SessionBean<T> extends AbstractClassBean<T>
       //for EJBs, we apply decorators through a proxy
       T proxy = null;
       TargetBeanInstance beanInstance = new TargetBeanInstance(this, instance);
-      ProxyFactory<T> proxyFactory = new ProxyFactory<T>(getType(), getTypes(), this);
-      DecorationHelper<T> decorationHelper = new DecorationHelper<T>(beanInstance, this, proxyFactory.getProxyClass(), beanManager, getServices().get(ContextualStore.class), getDecorators());
+      ProxyFactory<T> proxyFactory = new ProxyFactory<T>(getBeanManager().getContextId(), getType(), getTypes(), this);
+      DecorationHelper<T> decorationHelper = new DecorationHelper<T>(getBeanManager().getContextId(),beanInstance, this, proxyFactory.getProxyClass(), beanManager, getServices().get(ContextualStore.class), getDecorators());
 
       DecorationHelper.getHelperStack().push(decorationHelper);
       proxy = decorationHelper.getNextDelegate(originalInjectionPoint, creationalContext);

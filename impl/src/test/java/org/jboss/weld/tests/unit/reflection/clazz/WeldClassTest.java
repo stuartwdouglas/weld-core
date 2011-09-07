@@ -38,7 +38,7 @@ import org.junit.Test;
 public class WeldClassTest
 {
 	
-   private final ClassTransformer transformer = new ClassTransformer(new TypeStore());
+   private final ClassTransformer transformer = new ClassTransformer("", new TypeStore());
    
    /*
     * description = "WELD-216"
@@ -47,8 +47,8 @@ public class WeldClassTest
    @Ignore // Broken
    public void testMemberClassWithGenericTypes()
    {
-      AnnotatedType<?> at = WeldClassImpl.of(new Kangaroo().procreate().getClass(), transformer);
-      WeldClassImpl.of(at, transformer);
+      AnnotatedType<?> at = WeldClassImpl.of("", new Kangaroo().procreate().getClass(), transformer);
+      WeldClassImpl.of("", at, transformer);
    }
    
    /*
@@ -64,8 +64,8 @@ public class WeldClassTest
     */
    public void testLocalClassWithGenericTypes()
    {
-      AnnotatedType<?> at = WeldClassImpl.of(new Koala().procreate().getClass(), transformer);
-      WeldClassImpl.of(at, transformer);
+      AnnotatedType<?> at = WeldClassImpl.of("", new Koala().procreate().getClass(), transformer);
+      WeldClassImpl.of("", at, transformer);
    }
    
    /*
@@ -81,14 +81,14 @@ public class WeldClassTest
     */
    public void testAnonymousClassWithGenericTypes()
    {
-      AnnotatedType<?> at = WeldClassImpl.of(new Possum().procreate().getClass(), transformer);
-      WeldClassImpl.of(at, transformer);
+      AnnotatedType<?> at = WeldClassImpl.of("", new Possum().procreate().getClass(), transformer);
+      WeldClassImpl.of("", at, transformer);
    }
    
    @Test
    public void testDeclaredAnnotations()
    {
-      WeldClass<Order> annotatedElement = WeldClassImpl.of(Order.class, transformer);
+      WeldClass<Order> annotatedElement = WeldClassImpl.of("", Order.class, transformer);
       Assert.assertEquals(1, annotatedElement.getAnnotations().size());
       Assert.assertNotNull(annotatedElement.getAnnotation(Random.class));
       Assert.assertEquals(Order.class, annotatedElement.getJavaClass());
@@ -97,7 +97,7 @@ public class WeldClassTest
    @Test
    public void testMetaAnnotations()
    {
-      WeldClass<Order> annotatedElement = WeldClassImpl.of(Order.class, transformer);
+      WeldClass<Order> annotatedElement = WeldClassImpl.of("", Order.class, transformer);
       Set<Annotation> annotations = annotatedElement.getMetaAnnotations(Qualifier.class);
       Assert.assertEquals(1, annotations.size());
       Iterator<Annotation> it = annotations.iterator();
@@ -108,10 +108,10 @@ public class WeldClassTest
    @Test
    public void testEmpty()
    {
-      WeldClass<Order> annotatedElement = WeldClassImpl.of(Order.class, transformer);
+      WeldClass<Order> annotatedElement = WeldClassImpl.of("", Order.class, transformer);
       Assert.assertNull(annotatedElement.getAnnotation(Stereotype.class));
       Assert.assertEquals(0, annotatedElement.getMetaAnnotations(Stereotype.class).size());
-      WeldClass<Antelope> classWithNoAnnotations = WeldClassImpl.of(Antelope.class, transformer);
+      WeldClass<Antelope> classWithNoAnnotations = WeldClassImpl.of("", Antelope.class, transformer);
       Assert.assertEquals(0, classWithNoAnnotations.getAnnotations().size());
    }
    

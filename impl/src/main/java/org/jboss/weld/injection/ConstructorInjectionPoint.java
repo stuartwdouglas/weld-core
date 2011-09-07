@@ -56,6 +56,13 @@ public class ConstructorInjectionPoint<T> extends ForwardingWeldConstructor<T> i
 
    private static abstract class ForwardingParameterInjectionPointList<T, X> extends AbstractList<ParameterInjectionPoint<T, X>>
    {
+      private final String contextId;
+
+      public ForwardingParameterInjectionPointList(String contextId) 
+      {
+          this.contextId = contextId;
+      }
+
 
       protected abstract List<? extends WeldParameter<T, X>> delegate();
 
@@ -64,7 +71,7 @@ public class ConstructorInjectionPoint<T> extends ForwardingWeldConstructor<T> i
       @Override
       public ParameterInjectionPoint<T, X> get(int index)
       {
-         return ParameterInjectionPoint.of(declaringBean(), delegate().get(index));
+         return ParameterInjectionPoint.of(contextId, declaringBean(), delegate().get(index));
       }
 
       @Override
@@ -78,16 +85,19 @@ public class ConstructorInjectionPoint<T> extends ForwardingWeldConstructor<T> i
    @SuppressWarnings(value="SE_BAD_FIELD", justification="If the bean is not serializable, we won't ever try to serialize the injection point")
    private final Bean<T> declaringBean;
    private final WeldConstructor<T> constructor;
+   
+   private final String contextId;
 
-   public static <T> ConstructorInjectionPoint<T> of(Bean<T> declaringBean, WeldConstructor<T> constructor)
+   public static <T> ConstructorInjectionPoint<T> of(String contextId, Bean<T> declaringBean, WeldConstructor<T> constructor)
    {
-      return new ConstructorInjectionPoint<T>(declaringBean, constructor);
+      return new ConstructorInjectionPoint<T>(contextId, declaringBean, constructor);
    }
 
-   protected ConstructorInjectionPoint(Bean<T> declaringBean, WeldConstructor<T> constructor)
+   protected ConstructorInjectionPoint(String contextId, Bean<T> declaringBean, WeldConstructor<T> constructor)
    {
       this.declaringBean = declaringBean;
       this.constructor = constructor;
+      this.contextId = contextId;
    }
 
    @Override
@@ -156,7 +166,7 @@ public class ConstructorInjectionPoint<T> extends ForwardingWeldConstructor<T> i
    public List<ParameterInjectionPoint<?, T>> getWeldParameters()
    {
       final List<? extends WeldParameter<?, T>> delegate = super.getWeldParameters();
-      return new ForwardingParameterInjectionPointList()
+      return new ForwardingParameterInjectionPointList(contextId)
       {
 
          @Override
@@ -238,7 +248,7 @@ public class ConstructorInjectionPoint<T> extends ForwardingWeldConstructor<T> i
    
    private Object writeReplace() throws ObjectStreamException
    {
-      return new SerializationProxy<T>(this);
+      return new SerializationProxy<T>(contextId, this);
    }
    
    private void readObject(ObjectInputStream stream) throws InvalidObjectException
@@ -253,9 +263,9 @@ public class ConstructorInjectionPoint<T> extends ForwardingWeldConstructor<T> i
       
       private final ConstructorSignature signature;
 
-      public SerializationProxy(ConstructorInjectionPoint<T> injectionPoint)
+      public SerializationProxy(String contextId, ConstructorInjectionPoint<T> injectionPoint)
       {
-         super(injectionPoint);
+         super(contextId, injectionPoint);
          this.signature = injectionPoint.getSignature();
       }
       
@@ -267,7 +277,7 @@ public class ConstructorInjectionPoint<T> extends ForwardingWeldConstructor<T> i
          {
             throw new IllegalStateException(ReflectionMessage.UNABLE_TO_GET_CONSTRUCTOR_ON_DESERIALIZATION, getDeclaringBeanId(), getDeclaringWeldClass(), signature);
          }
-         return ConstructorInjectionPoint.of(getDeclaringBean(), getWeldConstructor());
+         return ConstructorInjectionPoint.of(contextId, getDeclaringBean(), getWeldConstructor());
       }
       
       protected WeldConstructor<T> getWeldConstructor()

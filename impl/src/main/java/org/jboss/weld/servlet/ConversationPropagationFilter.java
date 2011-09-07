@@ -33,6 +33,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpServletResponseWrapper;
 
 import org.jboss.weld.Container;
+import org.jboss.weld.bootstrap.api.helpers.RegistrySingletonProvider;
 import org.jboss.weld.context.ConversationContext;
 import org.jboss.weld.context.http.HttpConversationContext;
 import org.jboss.weld.jsf.FacesUrlTransformer;
@@ -53,9 +54,14 @@ import org.jboss.weld.jsf.FacesUrlTransformer;
  */
 public class ConversationPropagationFilter implements Filter
 {
-   
+   private String contextId;
+
    public void init(FilterConfig config) throws ServletException
    {
+      contextId = (String) config.getServletContext().getAttribute(Container.CONTEXT_ID_KEY);
+      if (contextId == null) {
+          contextId = RegistrySingletonProvider.STATIC_INSTANCE;
+      }
    }
 
    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException
@@ -78,7 +84,7 @@ public class ConversationPropagationFilter implements Filter
          @Override
          public void sendRedirect(String path) throws IOException
          {
-            ConversationContext conversationContext = instance().select(HttpConversationContext.class).get();
+            ConversationContext conversationContext = instance(contextId).select(HttpConversationContext.class).get();
             if (conversationContext.isActive())
             {
                Conversation conversation = conversationContext.getCurrentConversation();
@@ -93,8 +99,8 @@ public class ConversationPropagationFilter implements Filter
    }
    
    
-   private static Instance<Context> instance()
+   private static Instance<Context> instance(String id)
    {
-      return Container.instance().deploymentManager().instance().select(Context.class);
+      return Container.instance(id).deploymentManager().instance().select(Context.class);
    }
 }

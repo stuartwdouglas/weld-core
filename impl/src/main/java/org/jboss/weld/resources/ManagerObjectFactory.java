@@ -35,14 +35,21 @@ import ch.qos.cal10n.IMessageConveyor;
 
 public class ManagerObjectFactory implements ObjectFactory
 {
+   private final String contextId;
+
+   public ManagerObjectFactory(String contextId) 
+   {
+       this.contextId = contextId;
+   }
+
    // Exception messages
    private static final IMessageConveyor messageConveyer = loggerFactory().getMessageConveyor();
 
    public Object getObjectInstance(Object obj, Name name, Context nameCtx, Hashtable<?, ?> environment) throws Exception
    {
-      if (Container.available())
+      if (Container.available(contextId))
       {
-         for (Entry<BeanDeploymentArchive, BeanManagerImpl> entry : Container.instance().beanDeploymentArchives().entrySet())
+         for (Entry<BeanDeploymentArchive, BeanManagerImpl> entry : Container.instance(contextId).beanDeploymentArchives().entrySet())
          {
             if (entry.getKey().getId().equals("flat"))
             {

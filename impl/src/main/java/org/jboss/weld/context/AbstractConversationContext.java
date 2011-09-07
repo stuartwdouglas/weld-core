@@ -71,14 +71,14 @@ public abstract class AbstractConversationContext<R, S> extends AbstractBoundCon
    
    private final Instance<ConversationContext> conversationContexts;
 
-   public AbstractConversationContext()
+   public AbstractConversationContext(String contextId)
    {
-      super(true);
+      super(contextId, true);
       this.parameterName = new AtomicReference<String>(PARAMETER_NAME);
       this.defaultTimeout = new AtomicLong(DEFAULT_TIMEOUT);
       this.concurrentAccessTimeout = new AtomicLong(CONCURRENT_ACCESS_TIMEOUT);
       this.associated = new ThreadLocal<R>();
-      this.conversationContexts = Container.instance().deploymentManager().instance().select(ConversationContext.class);
+      this.conversationContexts = Container.instance(contextId).deploymentManager().instance().select(ConversationContext.class);
    }
 
    public String getParameterName()

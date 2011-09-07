@@ -26,6 +26,11 @@ import org.jboss.weld.context.SingletonContext;
 public class SingletonContextImpl extends AbstractSharedContext implements SingletonContext
 {
    
+   public SingletonContextImpl(String contextId) 
+   {
+       super(contextId);
+   }
+    
    public Class<? extends Annotation> getScope()
    {
       return Singleton.class;

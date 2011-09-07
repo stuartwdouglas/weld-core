@@ -54,7 +54,7 @@ public class WeldAnnotationImpl<T extends Annotation> extends WeldClassImpl<T> i
    // The set of abstracted members
    private final Set<WeldMethod<?, ?>> members;
    
-   public static <A extends Annotation> WeldAnnotation<A> of(Class<A> annotationType, ClassTransformer classTransformer)
+   public static <A extends Annotation> WeldAnnotation<A> of(String contextId, Class<A> annotationType, ClassTransformer classTransformer)
    {
       Map<Class<? extends Annotation>, Annotation> annotationMap = new HashMap<Class<? extends Annotation>, Annotation>();
       annotationMap.putAll(buildAnnotationMap(annotationType.getAnnotations()));
@@ -63,7 +63,7 @@ public class WeldAnnotationImpl<T extends Annotation> extends WeldClassImpl<T> i
       Map<Class<? extends Annotation>, Annotation> declaredAnnotationMap = new HashMap<Class<? extends Annotation>, Annotation>();
       declaredAnnotationMap.putAll(buildAnnotationMap(annotationType.getDeclaredAnnotations()));
       declaredAnnotationMap.putAll(buildAnnotationMap(classTransformer.getTypeStore().get(annotationType)));
-      return new WeldAnnotationImpl<A>(annotationType, annotationMap, declaredAnnotationMap, classTransformer);
+      return new WeldAnnotationImpl<A>(contextId, annotationType, annotationMap, declaredAnnotationMap, classTransformer);
    }
 
    /**
@@ -73,15 +73,15 @@ public class WeldAnnotationImpl<T extends Annotation> extends WeldClassImpl<T> i
     * 
     * @param annotationType The annotation type
     */
-   protected WeldAnnotationImpl(Class<T> annotationType, Map<Class<? extends Annotation>, Annotation> annotationMap, Map<Class<? extends Annotation>, Annotation> declaredAnnotationMap, ClassTransformer classTransformer)
+   protected WeldAnnotationImpl(String contextId, Class<T> annotationType, Map<Class<? extends Annotation>, Annotation> annotationMap, Map<Class<? extends Annotation>, Annotation> declaredAnnotationMap, ClassTransformer classTransformer)
    {
-      super(annotationType, annotationType, null, new TypeClosureLazyValueHolder(annotationType), annotationMap, declaredAnnotationMap, classTransformer);
+      super(contextId, annotationType, annotationType, null, new TypeClosureLazyValueHolder(contextId, annotationType), annotationMap, declaredAnnotationMap, classTransformer);
       this.clazz = annotationType;
       members = new HashSet<WeldMethod<?, ?>>();
       annotatedMembers = Multimaps.newSetMultimap(new HashMap<Class<? extends Annotation>, Collection<WeldMethod<?, ?>>>(), HashSetSupplier.<WeldMethod<?, ?>>instance());
       for (Method member : SecureReflections.getDeclaredMethods(clazz))
       {
-         WeldMethod<?, ?> annotatedMethod = WeldMethodImpl.of(member, this, classTransformer);
+         WeldMethod<?, ?> annotatedMethod = WeldMethodImpl.of(contextId, member, this, classTransformer);
          members.add(annotatedMethod);
          for (Annotation annotation : annotatedMethod.getAnnotations())
          {

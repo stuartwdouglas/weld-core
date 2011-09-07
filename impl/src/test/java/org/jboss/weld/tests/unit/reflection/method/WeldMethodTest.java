@@ -30,7 +30,7 @@ import org.junit.Test;
 public class WeldMethodTest
 {
 	
-   private final ClassTransformer transformer = new ClassTransformer(new TypeStore());
+   private final ClassTransformer transformer = new ClassTransformer("", new TypeStore());
    private final Class<Choice<?, ?>> CHOICE_LITERAL = new TypeLiteral<Choice<?, ?>>() 
    {
       private static final long serialVersionUID = 1672009803068800735L;
@@ -42,8 +42,8 @@ public class WeldMethodTest
    @Test
    public void testMethodReturnsGenericTypeOfClass() throws Exception
    {
-      WeldClass<Choice<?, ?>> clazz = WeldClassImpl.of(CHOICE_LITERAL, transformer);
-      WeldMethod<Choice<?, ?>, Choice<?, ?>> method = WeldMethodImpl.of(Choice.class.getMethod("aMethod"), clazz, transformer);
+      WeldClass<Choice<?, ?>> clazz = WeldClassImpl.of("", CHOICE_LITERAL, transformer);
+      WeldMethod<Choice<?, ?>, Choice<?, ?>> method = WeldMethodImpl.of("", Choice.class.getMethod("aMethod"), clazz, transformer);
       Assert.assertEquals(3, method.getTypeClosure().size());
    }
 

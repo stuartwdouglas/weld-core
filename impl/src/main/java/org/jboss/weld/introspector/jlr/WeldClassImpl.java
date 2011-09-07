@@ -83,24 +83,24 @@ public class WeldClassImpl<T> extends AbstractWeldAnnotated<T, Class<T>> impleme
 
    private final boolean discovered;
 
-   public static <T> WeldClass<T> of(Class<T> clazz, ClassTransformer classTransformer)
+   public static <T> WeldClass<T> of(String contextId, Class<T> clazz, ClassTransformer classTransformer)
    {
-      return new WeldClassImpl<T>(clazz, clazz, null, new TypeClosureLazyValueHolder(clazz), buildAnnotationMap(clazz.getAnnotations()), buildAnnotationMap(clazz.getDeclaredAnnotations()), classTransformer);
+      return new WeldClassImpl<T>(contextId, clazz, clazz, null, new TypeClosureLazyValueHolder(contextId, clazz), buildAnnotationMap(clazz.getAnnotations()), buildAnnotationMap(clazz.getDeclaredAnnotations()), classTransformer);
    }
 
-   public static <T> WeldClass<T> of(AnnotatedType<T> annotatedType, ClassTransformer classTransformer)
+   public static <T> WeldClass<T> of(String contextId, AnnotatedType<T> annotatedType, ClassTransformer classTransformer)
    {
-      return new WeldClassImpl<T>(annotatedType.getJavaClass(), annotatedType.getBaseType(), annotatedType, new TypeClosureLazyValueHolder(annotatedType.getTypeClosure()), buildAnnotationMap(annotatedType.getAnnotations()), buildAnnotationMap(annotatedType.getAnnotations()), classTransformer);
+      return new WeldClassImpl<T>(contextId, annotatedType.getJavaClass(), annotatedType.getBaseType(), annotatedType, new TypeClosureLazyValueHolder(contextId, annotatedType.getTypeClosure()), buildAnnotationMap(annotatedType.getAnnotations()), buildAnnotationMap(annotatedType.getAnnotations()), classTransformer);
    }
 
-   public static <T> WeldClass<T> of(Class<T> rawType, Type type, ClassTransformer classTransformer)
+   public static <T> WeldClass<T> of(String contextId, Class<T> rawType, Type type, ClassTransformer classTransformer)
    {
-      return new WeldClassImpl<T>(rawType, type, null, new TypeClosureLazyValueHolder(type), buildAnnotationMap(rawType.getAnnotations()), buildAnnotationMap(rawType.getDeclaredAnnotations()), classTransformer);
+      return new WeldClassImpl<T>(contextId, rawType, type, null, new TypeClosureLazyValueHolder(contextId, type), buildAnnotationMap(rawType.getAnnotations()), buildAnnotationMap(rawType.getDeclaredAnnotations()), classTransformer);
    }
 
-   protected WeldClassImpl(Class<T> rawType, Type type, AnnotatedType<T> annotatedType, LazyValueHolder<Set<Type>> typeClosure, Map<Class<? extends Annotation>, Annotation> annotationMap, Map<Class<? extends Annotation>, Annotation> declaredAnnotationMap, ClassTransformer classTransformer)
+   protected WeldClassImpl(String contextId, Class<T> rawType, Type type, AnnotatedType<T> annotatedType, LazyValueHolder<Set<Type>> typeClosure, Map<Class<? extends Annotation>, Annotation> annotationMap, Map<Class<? extends Annotation>, Annotation> declaredAnnotationMap, ClassTransformer classTransformer)
    {
-      super(annotationMap, declaredAnnotationMap, classTransformer, rawType, type, typeClosure);
+      super(contextId, annotationMap, declaredAnnotationMap, classTransformer, rawType, type, typeClosure);
 
       boolean modified;
       if(annotatedType instanceof DiscoveredExternalAnnotatedType)
@@ -144,7 +144,7 @@ public class WeldClassImpl<T> extends AbstractWeldAnnotated<T, Class<T>> impleme
          if (rawType != Object.class) {
             for (Field field : SecureReflections.getDeclaredFields(rawType))
             {
-               WeldField<?, T> annotatedField = WeldFieldImpl.of(field, this.<T> getDeclaringWeldClass(field, classTransformer), classTransformer);
+               WeldField<?, T> annotatedField = WeldFieldImpl.of(contextId, field, this.<T> getDeclaringWeldClass(field, classTransformer), classTransformer);
                declaredFieldsTemp.add(annotatedField);
                for (Annotation annotation : annotatedField.getAnnotations())
                {
@@ -169,7 +169,7 @@ public class WeldClassImpl<T> extends AbstractWeldAnnotated<T, Class<T>> impleme
          fieldsTemp = new HashSet<WeldField<?, ?>>();
          for (AnnotatedField<? super T> annotatedField : annotatedType.getFields())
          {
-            WeldField<?, ? super T> weldField = WeldFieldImpl.of(annotatedField, this, classTransformer);
+            WeldField<?, ? super T> weldField = WeldFieldImpl.of(contextId, annotatedField, this, classTransformer);
             fieldsTemp.add(weldField);
             if (annotatedField.getDeclaringType().getJavaClass() == rawType)
             {
@@ -207,7 +207,7 @@ public class WeldClassImpl<T> extends AbstractWeldAnnotated<T, Class<T>> impleme
          {
             Constructor<T> c = Reflections.cast(constructor);
 
-            WeldConstructor<T> annotatedConstructor = WeldConstructorImpl.of(c, this.<T> getDeclaringWeldClass(c, classTransformer), classTransformer);
+            WeldConstructor<T> annotatedConstructor = WeldConstructorImpl.of(contextId, c, this.<T> getDeclaringWeldClass(c, classTransformer), classTransformer);
             this.constructors.add(annotatedConstructor);
             this.declaredConstructorsBySignature.put(annotatedConstructor.getSignature(), annotatedConstructor);
          }
@@ -216,7 +216,7 @@ public class WeldClassImpl<T> extends AbstractWeldAnnotated<T, Class<T>> impleme
       {
          for (AnnotatedConstructor<T> constructor : annotatedType.getConstructors())
          {
-            WeldConstructor<T> weldConstructor = WeldConstructorImpl.of(constructor, this, classTransformer);
+            WeldConstructor<T> weldConstructor = WeldConstructorImpl.of(contextId, constructor, this, classTransformer);
 
             this.constructors.add(weldConstructor);
 
@@ -243,7 +243,7 @@ public class WeldClassImpl<T> extends AbstractWeldAnnotated<T, Class<T>> impleme
          {
             for (Method method : SecureReflections.getDeclaredMethods(rawType))
             {
-               WeldMethod<?, T> weldMethod  = WeldMethodImpl.of(method, this.<T> getDeclaringWeldClass(method, classTransformer), classTransformer);
+               WeldMethod<?, T> weldMethod  = WeldMethodImpl.of(contextId, method, this.<T> getDeclaringWeldClass(method, classTransformer), classTransformer);
                declaredMethodsTemp.add(weldMethod);
                for (Annotation annotation : weldMethod.getAnnotations())
                {
@@ -277,7 +277,7 @@ public class WeldClassImpl<T> extends AbstractWeldAnnotated<T, Class<T>> impleme
          methodsTemp = new HashSet<WeldMethod<?, ? super T>>();
          for (AnnotatedMethod<? super T> method : annotatedType.getMethods())
          {
-            WeldMethod<?, ? super T> weldMethod = WeldMethodImpl.of(method, this, classTransformer);
+            WeldMethod<?, ? super T> weldMethod = WeldMethodImpl.of(contextId, method, this, classTransformer);
             methodsTemp.add(weldMethod);
             if (method.getDeclaringType().getJavaClass() == rawType)
             {
@@ -319,7 +319,7 @@ public class WeldClassImpl<T> extends AbstractWeldAnnotated<T, Class<T>> impleme
          declaredMetaAnnotationMap.putSingleElement(declaredAnnotation.annotationType(), declaredAnnotation);
       }
       declaredMetaAnnotationMap.trimToSize();
-      this.declaredMetaAnnotationMap = SharedObjectFacade.wrap(declaredMetaAnnotationMap);
+      this.declaredMetaAnnotationMap = SharedObjectFacade.wrap(contextId, declaredMetaAnnotationMap);
    }
 
    private <X> WeldClass<X> getDeclaringWeldClass(Member member, ClassTransformer transformer)

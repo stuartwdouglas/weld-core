@@ -28,9 +28,9 @@ public abstract class AbstractUnboundContext extends AbstractManagedContext
 
    private final ThreadLocal<BeanStore> beanStore;
    
-   public AbstractUnboundContext(boolean multithreaded)
+   public AbstractUnboundContext(String contextId, boolean multithreaded)
    {
-      super(multithreaded);
+      super(contextId, multithreaded);
       this.beanStore = new ThreadLocal<BeanStore>();
    }
 

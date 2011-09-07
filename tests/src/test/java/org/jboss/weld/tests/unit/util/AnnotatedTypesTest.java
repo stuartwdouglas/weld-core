@@ -24,6 +24,7 @@ import javax.enterprise.inject.spi.AnnotatedField;
 import javax.enterprise.inject.spi.AnnotatedMethod;
 import javax.enterprise.inject.spi.AnnotatedType;
 import javax.enterprise.util.AnnotationLiteral;
+import org.jboss.weld.bootstrap.api.helpers.RegistrySingletonProvider;
 
 import org.jboss.weld.introspector.WeldClass;
 import org.jboss.weld.introspector.jlr.WeldClassImpl;
@@ -42,6 +43,7 @@ import org.testng.annotations.Test;
  */
 public class AnnotatedTypesTest
 {
+   private static String contextId = RegistrySingletonProvider.STATIC_INSTANCE;
    /**
     * tests the AnnotatedTypes.compareAnnotatedTypes 
     */
@@ -50,9 +52,9 @@ public class AnnotatedTypesTest
    {
       //check that two weld classes on the same underlying are equal
       TypeStore ts = new TypeStore();
-      ClassTransformer ct =new ClassTransformer(ts);
-      WeldClass<Chair> chair1 = WeldClassImpl.of(Chair.class,ct);
-      WeldClass<Chair> chair2 = WeldClassImpl.of(Chair.class,ct);
+      ClassTransformer ct =new ClassTransformer(contextId, ts);
+      WeldClass<Chair> chair1 = WeldClassImpl.of(contextId, Chair.class,ct);
+      WeldClass<Chair> chair2 = WeldClassImpl.of(contextId, Chair.class,ct);
       Assert.assertTrue(AnnotatedTypes.compareAnnotatedTypes(chair1, chair2));
       
       //check that a different implementation of annotated type is equal to the weld implementation

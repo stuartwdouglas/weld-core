@@ -22,7 +22,7 @@ public class InjectionTargetValidator implements Service
    {
       this.validator = new Validator();
       this.injectionTargets = new ArrayList<InjectionTarget<?>>();
-      this.container = Container.instance();
+      this.container = Container.instance(beanManager.getContextId());
       this.beanManager = beanManager;
    }
    

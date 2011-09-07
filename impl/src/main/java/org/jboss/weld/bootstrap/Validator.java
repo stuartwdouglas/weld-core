@@ -319,7 +319,7 @@ public class Validator implements Service
 
    public void validateInjectionPointPassivationCapable(InjectionPoint ij, Bean<?> resolvedBean, BeanManagerImpl beanManager)
    {
-      if (!ij.isTransient() && !Beans.isPassivationCapableDependency(resolvedBean))
+      if (!ij.isTransient() && !Beans.isPassivationCapableDependency(beanManager.getContextId(), resolvedBean))
       {
          if (resolvedBean.getScope().equals(Dependent.class) && resolvedBean instanceof AbstractProducerBean<?, ?, ?>)
          {
@@ -527,7 +527,7 @@ public class Validator implements Service
          {
             throw new DeploymentException(ALTERNATIVE_BEAN_CLASS_NOT_CLASS, clazz);
          }
-         WeldClass<?> weldClass = Container.instance().services().get(ClassTransformer.class).loadClass(clazz.getValue());
+         WeldClass<?> weldClass = Container.instance(beanManager.getContextId()).services().get(ClassTransformer.class).loadClass(clazz.getValue());
          if (!weldClass.isAnnotationPresent(Alternative.class))
          {
             throw new DeploymentException(ALTERNATIVE_BEAN_CLASS_NOT_ANNOTATED, clazz);

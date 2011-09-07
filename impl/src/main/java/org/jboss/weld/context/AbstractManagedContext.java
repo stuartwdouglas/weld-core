@@ -8,9 +8,9 @@ public abstract class AbstractManagedContext extends AbstractContext implements 
    private final ThreadLocal<Boolean> active;
    private final ThreadLocal<Boolean> valid;
 
-   public AbstractManagedContext(boolean multithreaded)
+   public AbstractManagedContext(String contextId, boolean multithreaded)
    {
-      super(multithreaded);
+      super(contextId, multithreaded);
       this.active = new ThreadLocal<Boolean>();
       this.valid = new ThreadLocal<Boolean>();
       

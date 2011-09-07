@@ -21,6 +21,7 @@ import java.io.Serializable;
 import javax.interceptor.InvocationContext;
 
 import org.jboss.weld.Container;
+import org.jboss.weld.bootstrap.api.helpers.RegistrySingletonProvider;
 import org.jboss.weld.context.RequestContext;
 import org.jboss.weld.context.ejb.EjbRequestContext;
 
@@ -37,6 +38,8 @@ import org.jboss.weld.context.ejb.EjbRequestContext;
 public class SessionBeanInterceptor implements Serializable
 {
    private static final long serialVersionUID = 7327757031821596782L;
+   
+   private String contextId;
 
    public Object aroundInvoke(InvocationContext invocation) throws Exception
    {
@@ -47,7 +50,14 @@ public class SessionBeanInterceptor implements Serializable
       }
       else
       {
-         EjbRequestContext requestContext = Container.instance().deploymentManager().instance().select(EjbRequestContext.class).get();
+         if (contextId == null) {
+             if (invocation.getContextData().containsKey(Container.CONTEXT_ID_KEY)) {
+                 contextId = (String) invocation.getContextData().get(Container.CONTEXT_ID_KEY);
+             } else {
+                 contextId = RegistrySingletonProvider.STATIC_INSTANCE;
+             }
+         }
+         EjbRequestContext requestContext = Container.instance(contextId).deploymentManager().instance().select(EjbRequestContext.class).get();
          try
          {
             requestContext.associate(invocation);
@@ -72,7 +82,7 @@ public class SessionBeanInterceptor implements Serializable
    
    private boolean isRequestContextActive()
    {
-      for (RequestContext requestContext : Container.instance().deploymentManager().instance().select(RequestContext.class))
+      for (RequestContext requestContext : Container.instance(contextId).deploymentManager().instance().select(RequestContext.class))
       {
          if (requestContext.isActive())
          {

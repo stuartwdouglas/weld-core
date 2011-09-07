@@ -49,7 +49,7 @@ public abstract class AbstractBuiltInBean<T> extends RIBean<T>
    {
       if (getScope() != null)
       {
-         proxyRequired = Container.instance().services().get(MetaAnnotationStore.class).getScopeModel(getScope()).isNormal();
+         proxyRequired = Container.instance(getBeanManager().getContextId()).services().get(MetaAnnotationStore.class).getScopeModel(getScope()).isNormal();
       }
       else
       {

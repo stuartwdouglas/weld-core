@@ -51,6 +51,13 @@ public class MethodInjectionPoint<T, X> extends ForwardingWeldMethod<T, X> imple
    private static abstract class ForwardingParameterInjectionPointList<T, X> extends AbstractList<ParameterInjectionPoint<T, X>>
    {
 
+      private final String contextId;
+
+      public ForwardingParameterInjectionPointList(String contextId) 
+      {
+          this.contextId = contextId;
+      }
+
       protected abstract List<? extends WeldParameter<T, X>> delegate();
 
       protected abstract Bean<X> declaringBean();
@@ -58,7 +65,7 @@ public class MethodInjectionPoint<T, X> extends ForwardingWeldMethod<T, X> imple
       @Override
       public ParameterInjectionPoint<T, X> get(int index)
       {
-         return ParameterInjectionPoint.of(declaringBean(), delegate().get(index));
+         return ParameterInjectionPoint.of(contextId, declaringBean(), delegate().get(index));
       }
 
       @Override
@@ -71,16 +78,18 @@ public class MethodInjectionPoint<T, X> extends ForwardingWeldMethod<T, X> imple
 
    private final Bean<?> declaringBean;
    private final WeldMethod<T, X> method;
+   private final String contextId;
 
-   public static <T, X> MethodInjectionPoint<T, X> of(Bean<?> declaringBean, WeldMethod<T, X> method)
+   public static <T, X> MethodInjectionPoint<T, X> of(String contextId, Bean<?> declaringBean, WeldMethod<T, X> method)
    {
-      return new MethodInjectionPoint<T, X>(declaringBean, method);
+      return new MethodInjectionPoint<T, X>( contextId, declaringBean, method);
    }
 
-   protected MethodInjectionPoint(Bean<?> declaringBean, WeldMethod<T, X> method)
+   protected MethodInjectionPoint(String contextId, Bean<?> declaringBean, WeldMethod<T, X> method)
    {
       this.declaringBean = declaringBean;
       this.method = method;
+      this.contextId = contextId;
    }
 
    @Override
@@ -224,7 +233,7 @@ public class MethodInjectionPoint<T, X> extends ForwardingWeldMethod<T, X> imple
    public List<ParameterInjectionPoint<?, X>> getWeldParameters()
    {
       final List<? extends WeldParameter<?, X>> delegate = super.getWeldParameters();
-      return new ForwardingParameterInjectionPointList()
+      return new ForwardingParameterInjectionPointList(contextId)
       {
 
          @Override
@@ -322,7 +331,7 @@ public class MethodInjectionPoint<T, X> extends ForwardingWeldMethod<T, X> imple
    
    private Object writeReplace() throws ObjectStreamException
    {
-      return new SerializationProxy<T>(this);
+      return new SerializationProxy<T>(contextId, this);
    }
    
    private void readObject(ObjectInputStream stream) throws InvalidObjectException
@@ -337,9 +346,9 @@ public class MethodInjectionPoint<T, X> extends ForwardingWeldMethod<T, X> imple
       
       private final MethodSignature signature;
 
-      public SerializationProxy(MethodInjectionPoint<T, ?> injectionPoint)
+      public SerializationProxy(String contextId, MethodInjectionPoint<T, ?> injectionPoint)
       {
-         super(injectionPoint);
+         super(contextId, injectionPoint);
          this.signature = injectionPoint.getSignature();
       }
       
@@ -351,7 +360,7 @@ public class MethodInjectionPoint<T, X> extends ForwardingWeldMethod<T, X> imple
          {
             throw new IllegalStateException(ReflectionMessage.UNABLE_TO_GET_METHOD_ON_DESERIALIZATION, getDeclaringBeanId(), getDeclaringWeldClass(), signature);
          }
-         return MethodInjectionPoint.of(getDeclaringBean(), getWeldMethod());
+         return MethodInjectionPoint.of(contextId, getDeclaringBean(), getWeldMethod());
       }
       
       protected WeldMethod<T, ?> getWeldMethod()

@@ -35,17 +35,21 @@ public class TypeClosureLazyValueHolder extends LazyValueHolder<Set<Type>>
    private final Type type;
 
    private final Set<Type> types;
+   
+   private final String contextId;
 
-   public TypeClosureLazyValueHolder(Type type)
+   public TypeClosureLazyValueHolder(String contextId, Type type)
    {
       this.type = type;
       this.types = null;
+      this.contextId = contextId;
    }
 
-   public TypeClosureLazyValueHolder(Set<Type> types)
+   public TypeClosureLazyValueHolder(String contextId, Set<Type> types)
    {
       this.type = null;
       this.types = types;
+      this.contextId = contextId;
    }
 
    @Override
@@ -55,7 +59,7 @@ public class TypeClosureLazyValueHolder extends LazyValueHolder<Set<Type>>
       {
          return types;
       }
-      return SharedObjectFacade.getTypeClosure(type);
+      return SharedObjectFacade.getTypeClosure(contextId, type);
    }
 
 }

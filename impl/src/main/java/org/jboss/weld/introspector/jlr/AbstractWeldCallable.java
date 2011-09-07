@@ -34,9 +34,9 @@ import org.jboss.weld.util.LazyValueHolder;
 public abstract class AbstractWeldCallable<T, X, S extends Member> extends AbstractWeldMember<T, X, S> implements WeldCallable<T, X, S>
 {  
    
-   protected AbstractWeldCallable(Map<Class<? extends Annotation>, Annotation> annotationMap, Map<Class<? extends Annotation>, Annotation> declaredAnnotationMap, ClassTransformer classTransformer, Member member, Class<T> rawType, Type type, LazyValueHolder<Set<Type>> typeClosure, WeldClass<X> declaringType)
+   protected AbstractWeldCallable(String contextId, Map<Class<? extends Annotation>, Annotation> annotationMap, Map<Class<? extends Annotation>, Annotation> declaredAnnotationMap, ClassTransformer classTransformer, Member member, Class<T> rawType, Type type, LazyValueHolder<Set<Type>> typeClosure, WeldClass<X> declaringType)
    {
-      super(annotationMap, declaredAnnotationMap, classTransformer, member, rawType, type, typeClosure, declaringType);
+      super(contextId, annotationMap, declaredAnnotationMap, classTransformer, member, rawType, type, typeClosure, declaringType);
    }
 
 }

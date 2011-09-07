@@ -9,7 +9,7 @@
  * You may obtain a copy of the License at
  * http://www.apache.org/licenses/LICENSE-2.0
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,  
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -37,7 +37,7 @@ import static org.jboss.weld.logging.messages.BeanMessage.PROXY_HANDLER_SERIALIZ
 /**
  * A general purpose MethodHandler for all proxies which routes calls to the
  * {@link BeanInstance} associated with this proxy or handler.
- * 
+ *
  * @author David Allen
  *
  */
@@ -56,10 +56,13 @@ public class ProxyMethodHandler implements MethodHandler, Serializable
 
    private transient Bean<?> bean;
 
-   public ProxyMethodHandler(BeanInstance beanInstance, Bean<?> bean)
+   private final String contextId;
+
+   public ProxyMethodHandler(String contextId, BeanInstance beanInstance, Bean<?> bean)
    {
       this.beanInstance = beanInstance;
       this.bean = bean;
+      this.contextId = contextId;
       if(bean instanceof PassivationCapable)
       {
          this.beanId = ((PassivationCapable)bean).getId();
@@ -117,7 +120,7 @@ public class ProxyMethodHandler implements MethodHandler, Serializable
          {
             log.trace("Setting new MethodHandler with bean instance for " + args[0] + " on " + self.getClass());
          }
-         return new ProxyMethodHandler(new TargetBeanInstance(args[0]), getBean());
+         return new ProxyMethodHandler(contextId, new TargetBeanInstance(args[0]), getBean());
       }
       else
       {
@@ -145,7 +148,7 @@ public class ProxyMethodHandler implements MethodHandler, Serializable
          {
             throw new WeldException(PROXY_HANDLER_SERIALIZED_FOR_NON_SERIALIZABLE_BEAN);
          }
-         bean = Container.instance().services().get(ContextualStore.class).<Bean<Object>, Object> getContextual(beanId);
+         bean = Container.instance(contextId).services().get(ContextualStore.class).<Bean<Object>, Object> getContextual(beanId);
       }
       return bean;
    }

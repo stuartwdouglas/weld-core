@@ -40,7 +40,7 @@ public abstract class AbstractFacadeBean<T> extends AbstractBuiltInBean<T>
 
    public T create(CreationalContext<T> creationalContext)
    {
-      InjectionPoint injectionPoint = Container.instance().services().get(CurrentInjectionPoint.class).peek();
+      InjectionPoint injectionPoint = Container.instance(getBeanManager().getContextId()).services().get(CurrentInjectionPoint.class).peek();
       if (injectionPoint != null)
       {
          return newInstance(injectionPoint, creationalContext);

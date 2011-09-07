@@ -17,9 +17,9 @@ public class BoundSessionContextImpl extends AbstractBoundContext<Map<String, Ob
 
    private final NamingScheme namingScheme;
 
-   public BoundSessionContextImpl()
+   public BoundSessionContextImpl(String contextId)
    {
-      super(false);
+      super(contextId, false);
       this.namingScheme = new SimpleNamingScheme(BoundSessionContext.class.getName());
    }
 

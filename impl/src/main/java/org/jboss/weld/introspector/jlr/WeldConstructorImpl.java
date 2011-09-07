@@ -65,14 +65,14 @@ public class WeldConstructorImpl<T> extends AbstractWeldCallable<T, T, Construct
 
    private final ConstructorSignature signature;
 
-   public static <T> WeldConstructor<T> of(Constructor<T> constructor, WeldClass<T> declaringClass, ClassTransformer classTransformer)
+   public static <T> WeldConstructor<T> of(String contextId, Constructor<T> constructor, WeldClass<T> declaringClass, ClassTransformer classTransformer)
    {
-      return new WeldConstructorImpl<T>(constructor, constructor.getDeclaringClass(), constructor.getDeclaringClass(), null, new TypeClosureLazyValueHolder(constructor.getDeclaringClass()), buildAnnotationMap(constructor.getAnnotations()), buildAnnotationMap(constructor.getDeclaredAnnotations()), declaringClass, classTransformer);
+      return new WeldConstructorImpl<T>(contextId, constructor, constructor.getDeclaringClass(), constructor.getDeclaringClass(), null, new TypeClosureLazyValueHolder(contextId, constructor.getDeclaringClass()), buildAnnotationMap(constructor.getAnnotations()), buildAnnotationMap(constructor.getDeclaredAnnotations()), declaringClass, classTransformer);
    }
 
-   public static <T> WeldConstructor<T> of(AnnotatedConstructor<T> annotatedConstructor, WeldClass<T> declaringClass, ClassTransformer classTransformer)
+   public static <T> WeldConstructor<T> of(String contextId, AnnotatedConstructor<T> annotatedConstructor, WeldClass<T> declaringClass, ClassTransformer classTransformer)
    {
-      return new WeldConstructorImpl<T>(annotatedConstructor.getJavaMember(), annotatedConstructor.getJavaMember().getDeclaringClass(), annotatedConstructor.getBaseType(), annotatedConstructor, new TypeClosureLazyValueHolder(annotatedConstructor.getTypeClosure()), buildAnnotationMap(annotatedConstructor.getAnnotations()), buildAnnotationMap(annotatedConstructor.getAnnotations()), declaringClass, classTransformer);
+      return new WeldConstructorImpl<T>(contextId, annotatedConstructor.getJavaMember(), annotatedConstructor.getJavaMember().getDeclaringClass(), annotatedConstructor.getBaseType(), annotatedConstructor, new TypeClosureLazyValueHolder(contextId, annotatedConstructor.getTypeClosure()), buildAnnotationMap(annotatedConstructor.getAnnotations()), buildAnnotationMap(annotatedConstructor.getAnnotations()), declaringClass, classTransformer);
    }
 
    /**
@@ -83,9 +83,9 @@ public class WeldConstructorImpl<T> extends AbstractWeldCallable<T, T, Construct
     * @param constructor The constructor method
     * @param declaringClass The declaring class
     */
-   private WeldConstructorImpl(Constructor<T> constructor, final Class<T> rawType, final Type type, AnnotatedConstructor<T> annotatedConstructor, LazyValueHolder<Set<Type>> typeClosure, Map<Class<? extends Annotation>, Annotation> annotationMap, Map<Class<? extends Annotation>, Annotation> declaredAnnotationMap, WeldClass<T> declaringClass, ClassTransformer classTransformer)
+   private WeldConstructorImpl(String contextId, Constructor<T> constructor, final Class<T> rawType, final Type type, AnnotatedConstructor<T> annotatedConstructor, LazyValueHolder<Set<Type>> typeClosure, Map<Class<? extends Annotation>, Annotation> annotationMap, Map<Class<? extends Annotation>, Annotation> declaredAnnotationMap, WeldClass<T> declaringClass, ClassTransformer classTransformer)
    {
-      super(annotationMap, declaredAnnotationMap, classTransformer, constructor, rawType, type, typeClosure, declaringClass);
+      super(contextId, annotationMap, declaredAnnotationMap, classTransformer, constructor, rawType, type, typeClosure, declaringClass);
       this.constructor = constructor;
 
       this.parameters = new ArrayList<WeldParameter<?, T>>();
@@ -122,7 +122,7 @@ public class WeldConstructorImpl<T> extends AbstractWeldCallable<T, T, Construct
                {
                   parameterType = clazz;
                }
-               WeldParameter<?, T> parameter = WeldParameterImpl.of(constructor.getParameterAnnotations()[i], clazz, parameterType, this, i, classTransformer);
+               WeldParameter<?, T> parameter = WeldParameterImpl.of(contextId, constructor.getParameterAnnotations()[i], clazz, parameterType, this, i, classTransformer);
                this.parameters.add(parameter);
             }
             else
@@ -137,7 +137,7 @@ public class WeldConstructorImpl<T> extends AbstractWeldCallable<T, T, Construct
                {
                   parameterType = clazz;
                }
-               WeldParameter<?, T> parameter = WeldParameterImpl.of(new Annotation[0], clazz, parameterType, this, i, classTransformer);
+               WeldParameter<?, T> parameter = WeldParameterImpl.of(contextId, new Annotation[0], clazz, parameterType, this, i, classTransformer);
                this.parameters.add(parameter);
             }
          }
@@ -152,7 +152,7 @@ public class WeldConstructorImpl<T> extends AbstractWeldCallable<T, T, Construct
          {
             for (AnnotatedParameter<T> annotatedParameter : annotatedConstructor.getParameters())
             {
-               WeldParameter<?, T> parameter = WeldParameterImpl.of(annotatedParameter.getAnnotations(), constructor.getParameterTypes()[annotatedParameter.getPosition()], annotatedParameter.getBaseType(), this, annotatedParameter.getPosition(), classTransformer);
+               WeldParameter<?, T> parameter = WeldParameterImpl.of(contextId, annotatedParameter.getAnnotations(), constructor.getParameterTypes()[annotatedParameter.getPosition()], annotatedParameter.getBaseType(), this, annotatedParameter.getPosition(), classTransformer);
                this.parameters.add(parameter);
             }
          }

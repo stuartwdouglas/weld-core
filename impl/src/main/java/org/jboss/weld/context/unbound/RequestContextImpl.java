@@ -11,9 +11,9 @@ import org.jboss.weld.context.beanstore.HashMapBeanStore;
 public class RequestContextImpl extends AbstractUnboundContext implements RequestContext
 {
 
-   public RequestContextImpl()
+   public RequestContextImpl(String contextId)
    {
-      super(false);
+      super(contextId, false);
    }
 
    public Class<? extends Annotation> getScope()

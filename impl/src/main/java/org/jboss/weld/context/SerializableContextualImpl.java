@@ -51,13 +51,16 @@ public class SerializableContextualImpl<C extends Contextual<I>, I> extends Forw
    // the id of a non-serializable, passivation capable contextual
    private String id;
    
+   private String contextId;
+   
    private transient ContextualStore cachedContextualStore;
    
    @java.lang.SuppressWarnings("unused")
    private SerializableContextualImpl() {}
    
-   public SerializableContextualImpl(C contextual, ContextualStore contextualStore)
+   public SerializableContextualImpl(String contextId, C contextual, ContextualStore contextualStore)
    {
+      this.contextId = contextId;
       this.cachedContextualStore = contextualStore;
       if (contextual instanceof Serializable)
       {
@@ -77,7 +80,7 @@ public class SerializableContextualImpl<C extends Contextual<I>, I> extends Forw
    {
       if (cachedContextualStore == null)
       {
-         this.cachedContextualStore = Container.instance().services().get(ContextualStore.class);
+         this.cachedContextualStore = Container.instance(contextId).services().get(ContextualStore.class);
       }
       return this.cachedContextualStore;
    }

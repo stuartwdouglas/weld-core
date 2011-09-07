@@ -25,6 +25,7 @@ import javax.faces.application.ViewHandlerWrapper;
 import javax.faces.context.FacesContext;
 
 import org.jboss.weld.Container;
+import org.jboss.weld.bootstrap.api.helpers.RegistrySingletonProvider;
 import org.jboss.weld.context.ConversationContext;
 import org.jboss.weld.context.http.HttpConversationContext;
 
@@ -64,7 +65,7 @@ public class ConversationAwareViewHandler extends ViewHandlerWrapper
    private final ViewHandler delegate;
    private volatile ConversationContext conversationContext;
    private static final ThreadLocal<Source> source = new ThreadLocal<Source>();
-
+   private String contextId;
 
    public ConversationAwareViewHandler(ViewHandler delegate)
    {
@@ -76,7 +77,7 @@ public class ConversationAwareViewHandler extends ViewHandlerWrapper
     *
     * @return the conversation context
     */
-   private ConversationContext getConversationContext()
+   private ConversationContext getConversationContext(String id)
    {
       if (conversationContext == null)
       {
@@ -84,7 +85,7 @@ public class ConversationAwareViewHandler extends ViewHandlerWrapper
          {
             if (conversationContext == null)
             {
-               Container container = Container.instance();
+               Container container = Container.instance(id);
                conversationContext = container.deploymentManager().instance().select(HttpConversationContext.class).get();
             }
          }
@@ -106,11 +107,18 @@ public class ConversationAwareViewHandler extends ViewHandlerWrapper
    @Override
    public String getActionURL(FacesContext facesContext, String viewId)
    {
+      if (contextId == null) {
+         if (facesContext.getAttributes().containsKey(Container.CONTEXT_ID_KEY)) {
+            contextId = (String) facesContext.getAttributes().get(Container.CONTEXT_ID_KEY);
+         } else {
+            contextId = RegistrySingletonProvider.STATIC_INSTANCE;
+         }
+      }
       String actionUrl = super.getActionURL(facesContext, viewId);
-      Conversation conversation = getConversationContext().getCurrentConversation();
+      Conversation conversation = getConversationContext(contextId).getCurrentConversation();
       if (!getSource().equals(Source.BOOKMARKABLE) && !conversation.isTransient())
       {
-         return new FacesUrlTransformer(actionUrl, facesContext).appendConversationIdIfNecessary(getConversationContext().getParameterName(), conversation.getId()).getUrl();
+         return new FacesUrlTransformer(actionUrl, facesContext).appendConversationIdIfNecessary(getConversationContext(contextId).getParameterName(), conversation.getId()).getUrl();
       }
       else
       {
