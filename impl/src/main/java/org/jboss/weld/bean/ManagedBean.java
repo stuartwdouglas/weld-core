@@ -99,7 +99,7 @@ public class ManagedBean<T> extends AbstractClassBean<T> {
                 if (outerDelegateInjectionPoint == null) {
                     throw new IllegalStateException(DELEGATE_INJECTION_POINT_NOT_FOUND, decorator);
                 }
-                CurrentInjectionPoint currentInjectionPoint = Container.instance().services().get(CurrentInjectionPoint.class);
+                CurrentInjectionPoint currentInjectionPoint = Container.instance(bean.beanManager.getContextId()).services().get(CurrentInjectionPoint.class);
                 if (currentInjectionPoint.peek() != null) {
                     this.originalInjectionPoint = currentInjectionPoint.pop();
                     currentInjectionPoint.push(outerDelegateInjectionPoint);
@@ -115,8 +115,9 @@ public class ManagedBean<T> extends AbstractClassBean<T> {
 
         private void cleanup() {
             if (bean.hasDecorators()) {
-                Container.instance().services().get(CurrentInjectionPoint.class).pop();
-                Container.instance().services().get(CurrentInjectionPoint.class).push(originalInjectionPoint);
+                String contextId = bean.beanManager.getContextId();
+                Container.instance(contextId).services().get(CurrentInjectionPoint.class).pop();
+                Container.instance(contextId).services().get(CurrentInjectionPoint.class).push(originalInjectionPoint);
             }
         }
 
@@ -322,7 +323,7 @@ public class ManagedBean<T> extends AbstractClassBean<T> {
         if (!isSubclassed()) {
             return getConstructor().newInstance(beanManager, ctx);
         } else {
-            ProxyClassConstructorInjectionPointWrapper<T> constructorInjectionPointWrapper = new ProxyClassConstructorInjectionPointWrapper<T>(this, constructorForEnhancedSubclass, getConstructor());
+            ProxyClassConstructorInjectionPointWrapper<T> constructorInjectionPointWrapper = new ProxyClassConstructorInjectionPointWrapper<T>(beanManager.getContextId(), this, constructorForEnhancedSubclass, getConstructor());
             T instance = constructorInjectionPointWrapper.newInstance(beanManager, ctx);
             return instance;
         }
@@ -354,7 +355,7 @@ public class ManagedBean<T> extends AbstractClassBean<T> {
 
     private void initPassivationCapable() {
         this.passivationCapableBean = getWeldAnnotated().isSerializable();
-        if (Container.instance().services().get(MetaAnnotationStore.class).getScopeModel(getScope()).isNormal()) {
+        if (Container.instance(beanManager.getContextId()).services().get(MetaAnnotationStore.class).getScopeModel(getScope()).isNormal()) {
             this.passivationCapableDependency = true;
         } else if (getScope().equals(Dependent.class) && passivationCapableBean) {
             this.passivationCapableDependency = true;
@@ -374,10 +375,10 @@ public class ManagedBean<T> extends AbstractClassBean<T> {
     }
 
     private void initEEInjectionPoints() {
-        this.ejbInjectionPoints = Beans.getEjbInjectionPoints(this, getWeldAnnotated(), getBeanManager());
-        this.persistenceContextInjectionPoints = Beans.getPersistenceContextInjectionPoints(this, getWeldAnnotated(), getBeanManager());
-        this.persistenceUnitInjectionPoints = Beans.getPersistenceUnitInjectionPoints(this, getWeldAnnotated(), getBeanManager());
-        this.resourceInjectionPoints = Beans.getResourceInjectionPoints(this, getWeldAnnotated(), beanManager);
+        this.ejbInjectionPoints = Beans.getEjbInjectionPoints(beanManager.getContextId(), this, getWeldAnnotated(), getBeanManager());
+        this.persistenceContextInjectionPoints = Beans.getPersistenceContextInjectionPoints(beanManager.getContextId(), this, getWeldAnnotated(), getBeanManager());
+        this.persistenceUnitInjectionPoints = Beans.getPersistenceUnitInjectionPoints(beanManager.getContextId(), this, getWeldAnnotated(), getBeanManager());
+        this.resourceInjectionPoints = Beans.getResourceInjectionPoints(beanManager.getContextId(), this, getWeldAnnotated(), beanManager);
     }
 
     /**

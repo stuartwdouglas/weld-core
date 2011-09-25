@@ -35,10 +35,10 @@ public abstract class AbstractSharedContext extends AbstractContext {
     /**
      * Constructor
      */
-    protected AbstractSharedContext() {
-        super(true);
+    protected AbstractSharedContext(String contextId) {
+        super(contextId, true);
         this.beanStore = SingletonProvider.instance().create(BeanStore.class);
-        beanStore.set(new ConcurrentHashMapBeanStore());
+        beanStore.set(contextId, new ConcurrentHashMapBeanStore());
     }
 
     /**
@@ -48,7 +48,8 @@ public abstract class AbstractSharedContext extends AbstractContext {
      */
     @Override
     public BeanStore getBeanStore() {
-        return this.beanStore.get();
+        BeanStore store = this.beanStore.get(getContextId());
+        return store;
     }
 
     public boolean isActive() {
@@ -68,7 +69,7 @@ public abstract class AbstractSharedContext extends AbstractContext {
     @Override
     public void cleanup() {
         super.cleanup();
-        beanStore.clear();
+        beanStore.clear(getContextId());
     }
 
     @Override

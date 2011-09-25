@@ -59,14 +59,21 @@ public abstract class AbstractContext implements Context {
 
     private final ServiceRegistry serviceRegistry;
 
+    private final String contextId;
+
     /**
      * Constructor
      *
      * @param scopeType The scope type
      */
-    public AbstractContext(boolean multithreaded) {
+    public AbstractContext(String contextId, boolean multithreaded) {
         this.multithreaded = multithreaded;
-        this.serviceRegistry = Container.instance().services();
+        this.contextId = contextId;
+        this.serviceRegistry = Container.instance(contextId).services();
+    }
+
+    public String getContextId() {
+        return contextId;
     }
 
     /**
@@ -106,8 +113,8 @@ public abstract class AbstractContext implements Context {
                 }
                 T instance = contextual.create(creationalContext);
                 if (instance != null) {
-                    beanInstance = new SerializableContextualInstanceImpl<Contextual<T>, T>(contextual, instance, creationalContext, serviceRegistry.get(ContextualStore.class));
-                    beanStore.put(id, beanInstance);
+                    beanInstance = new SerializableContextualInstanceImpl<Contextual<T>, T>(contextId, contextual, instance, creationalContext, serviceRegistry.get(ContextualStore.class));
+                    getBeanStore().put(id, beanInstance);
                 }
                 return instance;
             } finally {
@@ -161,8 +168,8 @@ public abstract class AbstractContext implements Context {
         }
     }
 
-    protected static <T> Contextual<T> getContextual(String id) {
-        return Container.instance().services().get(ContextualStore.class).<Contextual<T>, T>getContextual(id);
+    protected static <T> Contextual<T> getContextual(String contextId, String id) {
+        return Container.instance(contextId).services().get(ContextualStore.class).<Contextual<T>, T>getContextual(id);
     }
 
     protected String getId(Contextual<?> contextual) {

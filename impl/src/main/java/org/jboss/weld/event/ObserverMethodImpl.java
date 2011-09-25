@@ -95,7 +95,7 @@ public class ObserverMethodImpl<T, X> implements ObserverMethod<T> {
     protected ObserverMethodImpl(final WeldMethod<T, ? super X> observer, final RIBean<X> declaringBean, final BeanManagerImpl manager) {
         this.beanManager = manager;
         this.declaringBean = declaringBean;
-        this.observerMethod = MethodInjectionPoint.of(declaringBean, observer);
+        this.observerMethod = MethodInjectionPoint.of(manager.getContextId(), declaringBean, observer);
         this.eventType = observerMethod.getAnnotatedParameters(Observes.class).get(0).getBaseType();
         this.id = new StringBuilder().append(ID_PREFIX).append(ID_SEPARATOR)/*.append(manager.getId()).append(ID_SEPARATOR)*/.append(ObserverMethod.class.getSimpleName()).append(ID_SEPARATOR).append(declaringBean.getBeanClass().getName()).append(".").append(observer.getSignature()).toString();
         this.bindings = new HashSet<Annotation>(observerMethod.getAnnotatedParameters(Observes.class).get(0).getMetaAnnotations(Qualifier.class));
@@ -105,7 +105,7 @@ public class ObserverMethodImpl<T, X> implements ObserverMethod<T> {
 
         this.injectionPoints = new HashSet<WeldInjectionPoint<?, ?>>();
         this.newInjectionPoints = new HashSet<WeldInjectionPoint<?, ?>>();
-        for (WeldInjectionPoint<?, ?> injectionPoint : Beans.getParameterInjectionPoints(null, observerMethod)) {
+        for (WeldInjectionPoint<?, ?> injectionPoint : Beans.getParameterInjectionPoints(manager.getContextId(), null, observerMethod)) {
             if (injectionPoint.isAnnotationPresent(Observes.class) == false) {
                 if (injectionPoint.isAnnotationPresent(New.class)) {
                     this.newInjectionPoints.add(injectionPoint);

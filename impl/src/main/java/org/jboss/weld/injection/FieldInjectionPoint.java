@@ -56,15 +56,16 @@ public class FieldInjectionPoint<T, X> extends ForwardingWeldField<T, X> impleme
     private final boolean delegate;
     private final boolean cacheable;
     private Bean<?> cachedBean;
+    private final String contextId;
 
-
-    public static <T, X> FieldInjectionPoint<T, X> of(Bean<?> declaringBean, WeldField<T, X> field) {
-        return new FieldInjectionPoint<T, X>(declaringBean, field);
+    public static <T, X> FieldInjectionPoint<T, X> of(String contextId, Bean<?> declaringBean, WeldField<T, X> field) {
+        return new FieldInjectionPoint<T, X>(contextId, declaringBean, field);
     }
 
-    protected FieldInjectionPoint(Bean<?> declaringBean, WeldField<T, X> field) {
+    protected FieldInjectionPoint(String contextId, Bean<?> declaringBean, WeldField<T, X> field) {
         this.declaringBean = declaringBean;
         this.field = field;
+        this.contextId = contextId;
         this.delegate = isAnnotationPresent(Inject.class) && isAnnotationPresent(Delegate.class) && declaringBean instanceof Decorator<?>;
         this.cacheable = !delegate && !InjectionPoint.class.isAssignableFrom(field.getJavaMember().getType()) && !Instance.class.isAssignableFrom(field.getJavaMember().getType());
     }
@@ -158,9 +159,8 @@ public class FieldInjectionPoint<T, X> extends ForwardingWeldField<T, X> impleme
     }
 
     // Serialization
-
     private Object writeReplace() throws ObjectStreamException {
-        return new SerializationProxy<T>(this);
+        return new SerializationProxy<T>(contextId, this);
     }
 
     private void readObject(ObjectInputStream stream) throws InvalidObjectException {
@@ -173,8 +173,8 @@ public class FieldInjectionPoint<T, X> extends ForwardingWeldField<T, X> impleme
 
         private final String fieldName;
 
-        public SerializationProxy(FieldInjectionPoint<T, ?> injectionPoint) {
-            super(injectionPoint);
+        public SerializationProxy(String contextId, FieldInjectionPoint<T, ?> injectionPoint) {
+            super(contextId, injectionPoint);
             this.fieldName = injectionPoint.getName();
         }
 
@@ -184,7 +184,7 @@ public class FieldInjectionPoint<T, X> extends ForwardingWeldField<T, X> impleme
             if (field == null || (bean == null && getDeclaringBeanId() != null)) {
                 throw new IllegalStateException(ReflectionMessage.UNABLE_TO_GET_FIELD_ON_DESERIALIZATION, getDeclaringBeanId(), getDeclaringWeldClass(), fieldName);
             }
-            return FieldInjectionPoint.of(getDeclaringBean(), getWeldField());
+            return FieldInjectionPoint.of(contextId, getDeclaringBean(), getWeldField());
         }
 
         protected WeldField<T, ?> getWeldField() {

@@ -227,6 +227,7 @@ public class BeanManagerImpl implements WeldManager, Serializable {
 
     private final AtomicInteger childIds;
     private final String id;
+    private final String contextId;
 
     /**
      * Interception model
@@ -240,7 +241,7 @@ public class BeanManagerImpl implements WeldManager, Serializable {
      * @param serviceRegistry
      * @return
      */
-    public static BeanManagerImpl newRootManager(String id, ServiceRegistry serviceRegistry, Enabled enabled) {
+    public static BeanManagerImpl newRootManager(String contextId, String id, ServiceRegistry serviceRegistry, Enabled enabled) {
         Map<Class<? extends Annotation>, List<Context>> contexts = new ConcurrentHashMap<Class<? extends Annotation>, List<Context>>();
 
         return new BeanManagerImpl(
@@ -252,12 +253,12 @@ public class BeanManagerImpl implements WeldManager, Serializable {
                 new CopyOnWriteArrayList<ObserverMethod<?>>(),
                 new CopyOnWriteArrayList<String>(),
                 new ConcurrentHashMap<EjbDescriptor<?>, SessionBean<?>>(),
-                new ClientProxyProvider(),
+                new ClientProxyProvider(contextId),
                 contexts,
                 new CopyOnWriteArraySet<CurrentActivity>(),
                 new HashMap<Contextual<?>, Contextual<?>>(),
                 enabled,
-                id,
+                id, contextId,
                 new AtomicInteger());
     }
 
@@ -282,7 +283,7 @@ public class BeanManagerImpl implements WeldManager, Serializable {
                 new CopyOnWriteArraySet<CurrentActivity>(),
                 new HashMap<Contextual<?>, Contextual<?>>(),
                 enabled,
-                id,
+                id, rootManager.contextId,
                 new AtomicInteger());
     }
 
@@ -318,6 +319,7 @@ public class BeanManagerImpl implements WeldManager, Serializable {
                 parentManager.getSpecializedBeans(),
                 parentManager.getEnabled(),
                 new StringBuilder().append(parentManager.getChildIds().incrementAndGet()).toString(),
+                parentManager.contextId,
                 parentManager.getChildIds());
     }
 
@@ -341,7 +343,7 @@ public class BeanManagerImpl implements WeldManager, Serializable {
             Set<CurrentActivity> currentActivities,
             Map<Contextual<?>, Contextual<?>> specializedBeans,
             Enabled enabled,
-            String id,
+            String id, String contextId,
             AtomicInteger childIds) {
         this.services = serviceRegistry;
         this.beans = beans;
@@ -357,6 +359,7 @@ public class BeanManagerImpl implements WeldManager, Serializable {
         this.enabled = enabled;
         this.namespaces = namespaces;
         this.id = id;
+        this.contextId = contextId;
         this.childIds = new AtomicInteger();
 
         // Set up the structure to store accessible managers in
@@ -372,6 +375,10 @@ public class BeanManagerImpl implements WeldManager, Serializable {
         this.nameBasedResolver = new NameBasedResolver(this, createDynamicAccessibleIterable(beanTransform));
         this.weldELResolver = new WeldELResolver(this);
         this.childActivities = new CopyOnWriteArraySet<BeanManagerImpl>();
+    }
+
+    public String getContextId() {
+        return contextId;
     }
 
 
@@ -407,7 +414,7 @@ public class BeanManagerImpl implements WeldManager, Serializable {
             enterpriseBeans.put(enterpriseBean.getEjbDescriptor(), enterpriseBean);
         }
         if (bean instanceof PassivationCapable) {
-            Container.instance().services().get(ContextualStore.class).putIfAbsent(bean);
+            Container.instance(contextId).services().get(ContextualStore.class).putIfAbsent(bean);
         }
         registerBeanNamespace(bean);
         for (BeanManagerImpl childActivity : childActivities) {
@@ -440,12 +447,12 @@ public class BeanManagerImpl implements WeldManager, Serializable {
 
     public <T> Set<ObserverMethod<? super T>> resolveObserverMethods(Type eventType, Annotation... qualifiers) {
         // We can always cache as this is only ever called by Weld where we avoid non-static inner classes for annotation literals
-        return cast(observerResolver.resolve(new ResolvableBuilder().addTypes(new HierarchyDiscovery(eventType).getTypeClosure()).addType(Object.class).addQualifiers(qualifiers).addQualifierIfAbsent(AnyLiteral.INSTANCE).create(), true));
+        return cast(observerResolver.resolve(new ResolvableBuilder(contextId).addTypes(new HierarchyDiscovery(eventType).getTypeClosure()).addType(Object.class).addQualifiers(qualifiers).addQualifierIfAbsent(AnyLiteral.INSTANCE).create(), true));
     }
 
     public <T> Set<ObserverMethod<? super T>> resolveObserverMethods(Type eventType, Set<Annotation> qualifiers) {
         // We can always cache as this is only ever called by Weld where we avoid non-static inner classes for annotation literals
-        return cast(observerResolver.resolve(new ResolvableBuilder().addTypes(new HierarchyDiscovery(eventType).getTypeClosure()).addType(Object.class).addQualifiers(qualifiers).addQualifierIfAbsent(AnyLiteral.INSTANCE).create(), true));
+        return cast(observerResolver.resolve(new ResolvableBuilder(contextId).addTypes(new HierarchyDiscovery(eventType).getTypeClosure()).addType(Object.class).addQualifiers(qualifiers).addQualifierIfAbsent(AnyLiteral.INSTANCE).create(), true));
     }
 
     /**
@@ -462,24 +469,24 @@ public class BeanManagerImpl implements WeldManager, Serializable {
     }
 
     public Set<Bean<?>> getBeans(Type beanType, Annotation... qualifiers) {
-        return beanResolver.resolve(new ResolvableBuilder(beanType).addQualifiers(qualifiers).create(), isCacheable(qualifiers));
+        return beanResolver.resolve(new ResolvableBuilder(contextId, beanType).addQualifiers(qualifiers).create(), isCacheable(qualifiers));
     }
 
     public Set<Bean<?>> getBeans(Type beanType, Set<Annotation> qualifiers) {
-        return beanResolver.resolve(new ResolvableBuilder(beanType).addQualifiers(qualifiers).create(), isCacheable(qualifiers));
+        return beanResolver.resolve(new ResolvableBuilder(contextId, beanType).addQualifiers(qualifiers).create(), isCacheable(qualifiers));
     }
 
     public Set<Bean<?>> getBeans(InjectionPoint injectionPoint) {
         boolean registerInjectionPoint = !injectionPoint.getType().equals(InjectionPoint.class);
         try {
             if (registerInjectionPoint) {
-                Container.instance().services().get(CurrentInjectionPoint.class).push(injectionPoint);
+                Container.instance(contextId).services().get(CurrentInjectionPoint.class).push(injectionPoint);
             }
             // We always cache, we assume that people don't use inline annotation literal declarations, a little risky but FAQd
-            return beanResolver.resolve(new ResolvableBuilder(injectionPoint).create(), true);
+            return beanResolver.resolve(new ResolvableBuilder(contextId, injectionPoint).create(), true);
         } finally {
             if (registerInjectionPoint) {
-                Container.instance().services().get(CurrentInjectionPoint.class).pop();
+                Container.instance(contextId).services().get(CurrentInjectionPoint.class).pop();
             }
         }
     }
@@ -677,7 +684,7 @@ public class BeanManagerImpl implements WeldManager, Serializable {
         boolean delegateInjectionPoint = injectionPoint != null && injectionPoint.isDelegate();
         try {
             if (registerInjectionPoint) {
-                Container.instance().services().get(CurrentInjectionPoint.class).push(injectionPoint);
+                Container.instance(contextId).services().get(CurrentInjectionPoint.class).push(injectionPoint);
             }
             if (getServices().get(MetaAnnotationStore.class).getScopeModel(resolvedBean.getScope()).isNormal() && !Proxies.isTypeProxyable(injectionPoint.getType())) {
                 throw new UnproxyableResolutionException(UNPROXYABLE_RESOLUTION, resolvedBean, injectionPoint);
@@ -695,7 +702,7 @@ public class BeanManagerImpl implements WeldManager, Serializable {
             }
         } finally {
             if (registerInjectionPoint) {
-                Container.instance().services().get(CurrentInjectionPoint.class).pop();
+                Container.instance(contextId).services().get(CurrentInjectionPoint.class).pop();
             }
         }
     }
@@ -703,7 +710,7 @@ public class BeanManagerImpl implements WeldManager, Serializable {
 
     public Object getInjectableReference(InjectionPoint injectionPoint, CreationalContext<?> creationalContext) {
         if (!injectionPoint.isDelegate()) {
-            Bean<?> resolvedBean = getBean(new ResolvableBuilder(injectionPoint).create());
+            Bean<?> resolvedBean = getBean(new ResolvableBuilder(contextId, injectionPoint).create());
             return getReference(injectionPoint, resolvedBean, creationalContext);
         } else {
             return DecorationHelper.getHelperStack().peek().getNextDelegate(injectionPoint, creationalContext);
@@ -731,14 +738,14 @@ public class BeanManagerImpl implements WeldManager, Serializable {
     public List<Decorator<?>> resolveDecorators(Set<Type> types, Annotation... qualifiers) {
         checkResolveDecoratorsArguments(types);
         // TODO Fix this cast and make the resolver return a list
-        return new ArrayList<Decorator<?>>(decoratorResolver.resolve(new ResolvableBuilder().addTypes(types).addQualifiers(qualifiers).create(), isCacheable(qualifiers)));
+        return new ArrayList<Decorator<?>>(decoratorResolver.resolve(new ResolvableBuilder(contextId).addTypes(types).addQualifiers(qualifiers).create(), isCacheable(qualifiers)));
     }
 
     public List<Decorator<?>> resolveDecorators(Set<Type> types, Set<Annotation> qualifiers) {
         checkResolveDecoratorsArguments(types);
         // TODO Fix this cast and make the resolver return a list
         // We can always cache as this is only ever called by Weld where we avoid non-static inner classes for annotation literals
-        return new ArrayList<Decorator<?>>(decoratorResolver.resolve(new ResolvableBuilder().addTypes(types).addQualifiers(qualifiers).create(), true));
+        return new ArrayList<Decorator<?>>(decoratorResolver.resolve(new ResolvableBuilder(contextId).addTypes(types).addQualifiers(qualifiers).create(), true));
     }
 
     private void checkResolveDecoratorsArguments(Set<Type> types) {
@@ -759,7 +766,7 @@ public class BeanManagerImpl implements WeldManager, Serializable {
      */
     public List<Interceptor<?>> resolveInterceptors(InterceptionType type, Annotation... interceptorBindings) {
         // We can always cache as this is only ever called by Weld where we avoid non-static inner classes for annotation literals
-        return new ArrayList<Interceptor<?>>(interceptorResolver.resolve(new InterceptorResolvableBuilder(Object.class).setInterceptionType(type).addQualifiers(interceptorBindings).create(), isCacheable(interceptorBindings)));
+        return new ArrayList<Interceptor<?>>(interceptorResolver.resolve(new InterceptorResolvableBuilder(contextId, Object.class).setInterceptionType(type).addQualifiers(interceptorBindings).create(), isCacheable(interceptorBindings)));
     }
 
     /**
@@ -823,7 +830,7 @@ public class BeanManagerImpl implements WeldManager, Serializable {
     public BeanManagerImpl createActivity() {
         BeanManagerImpl childActivity = newChildActivityManager(this);
         childActivities.add(childActivity);
-        Container.instance().addActivity(childActivity);
+        Container.instance(contextId).addActivity(childActivity);
         return childActivity;
     }
 
@@ -867,7 +874,7 @@ public class BeanManagerImpl implements WeldManager, Serializable {
     // Serialization
 
     protected Object readResolve() {
-        return Container.instance().activityManager(id);
+        return Container.instance(contextId).activityManager(id);
     }
 
     public ClientProxyProvider getClientProxyProvider() {

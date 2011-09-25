@@ -126,18 +126,18 @@ public abstract class AbstractWeldAnnotated<T, S> implements WeldAnnotated<T, S>
      *
      * @param annotationMap A map of annotation to register
      */
-    public AbstractWeldAnnotated(Map<Class<? extends Annotation>, Annotation> annotationMap, Map<Class<? extends Annotation>, Annotation> declaredAnnotationMap, ClassTransformer classTransformer, Class<T> rawType, Type type, final LazyValueHolder<Set<Type>> typeClosure) {
+    public AbstractWeldAnnotated(String contextId, Map<Class<? extends Annotation>, Annotation> annotationMap, Map<Class<? extends Annotation>, Annotation> declaredAnnotationMap, ClassTransformer classTransformer, Class<T> rawType, Type type, final LazyValueHolder<Set<Type>> typeClosure) {
         if (annotationMap == null) {
             throw new WeldException(ANNOTATION_MAP_NULL);
         }
-        this.annotationMap = SharedObjectFacade.wrap(annotationMap);
+        this.annotationMap = SharedObjectFacade.wrap(contextId, annotationMap);
         ArraySetMultimap<Class<? extends Annotation>, Annotation> metaAnnotationMap = new ArraySetMultimap<Class<? extends Annotation>, Annotation>();
         for (Annotation annotation : annotationMap.values()) {
             addMetaAnnotations(metaAnnotationMap, annotation, annotation.annotationType().getAnnotations(), false);
             addMetaAnnotations(metaAnnotationMap, annotation, classTransformer.getTypeStore().get(annotation.annotationType()), false);
         }
         metaAnnotationMap.trimToSize();
-        this.metaAnnotationMap = SharedObjectFacade.wrap(metaAnnotationMap);
+        this.metaAnnotationMap = SharedObjectFacade.wrap(contextId, metaAnnotationMap);
 
         if (declaredAnnotationMap == null) {
             throw new WeldException(DECLARED_ANNOTATION_MAP_NULL);

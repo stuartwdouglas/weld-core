@@ -156,11 +156,11 @@ public class Beans {
      * @param bean The bean to inspect
      * @return True if the bean is passivation capable
      */
-    public static boolean isPassivationCapableDependency(Bean<?> bean) {
+    public static boolean isPassivationCapableDependency(String contextId, Bean<?> bean) {
         if (bean instanceof RIBean<?>) {
             return ((RIBean<?>) bean).isPassivationCapableDependency();
         } else {
-            if (Container.instance().services().get(MetaAnnotationStore.class).getScopeModel(bean.getScope()).isNormal()) {
+            if (Container.instance(contextId).services().get(MetaAnnotationStore.class).getScopeModel(bean.getScope()).isNormal()) {
                 return true;
             } else if (bean.getScope().equals(Dependent.class) && isPassivationCapableBean(bean)) {
                 return true;
@@ -184,7 +184,7 @@ public class Beans {
         }
     }
 
-    public static List<Set<FieldInjectionPoint<?, ?>>> getFieldInjectionPoints(Bean<?> declaringBean, WeldClass<?> type) {
+    public static List<Set<FieldInjectionPoint<?, ?>>> getFieldInjectionPoints(String contextId, Bean<?> declaringBean, WeldClass<?> type) {
         List<Set<FieldInjectionPoint<?, ?>>> injectableFieldsList = new ArrayList<Set<FieldInjectionPoint<?, ?>>>();
         WeldClass<?> t = type;
         while (t != null && !t.getJavaClass().equals(Object.class)) {
@@ -192,7 +192,7 @@ public class Beans {
             injectableFieldsList.add(0, fields);
             for (WeldField<?, ?> annotatedField : t.getDeclaredWeldFields(Inject.class)) {
                 if (!annotatedField.isStatic()) {
-                    addFieldInjectionPoint(annotatedField, fields, declaringBean);
+                    addFieldInjectionPoint(contextId, annotatedField, fields, declaringBean);
                 }
             }
             fields.trimToSize();
@@ -288,12 +288,12 @@ public class Beans {
         return annotatedMethods;
     }
 
-    public static Set<WeldInjectionPoint<?, ?>> getEjbInjectionPoints(Bean<?> declaringBean, WeldClass<?> type, BeanManagerImpl manager) {
+    public static Set<WeldInjectionPoint<?, ?>> getEjbInjectionPoints(String contextId, Bean<?> declaringBean, WeldClass<?> type, BeanManagerImpl manager) {
         if (manager.getServices().contains(EjbInjectionServices.class)) {
             Class<? extends Annotation> ejbAnnotationType = manager.getServices().get(EJBApiAbstraction.class).EJB_ANNOTATION_CLASS;
             ArraySet<WeldInjectionPoint<?, ?>> ejbInjectionPoints = new ArraySet<WeldInjectionPoint<?, ?>>();
             for (WeldField<?, ?> field : type.getWeldFields(ejbAnnotationType)) {
-                ejbInjectionPoints.add(FieldInjectionPoint.of(declaringBean, field));
+                ejbInjectionPoints.add(FieldInjectionPoint.of(contextId, declaringBean, field));
             }
             return ejbInjectionPoints.trimToSize();
         } else {
@@ -301,12 +301,12 @@ public class Beans {
         }
     }
 
-    public static Set<WeldInjectionPoint<?, ?>> getPersistenceContextInjectionPoints(Bean<?> declaringBean, WeldClass<?> type, BeanManagerImpl manager) {
+    public static Set<WeldInjectionPoint<?, ?>> getPersistenceContextInjectionPoints(String contextId, Bean<?> declaringBean, WeldClass<?> type, BeanManagerImpl manager) {
         if (manager.getServices().contains(JpaInjectionServices.class)) {
             ArraySet<WeldInjectionPoint<?, ?>> jpaInjectionPoints = new ArraySet<WeldInjectionPoint<?, ?>>();
             Class<? extends Annotation> persistenceContextAnnotationType = manager.getServices().get(PersistenceApiAbstraction.class).PERSISTENCE_CONTEXT_ANNOTATION_CLASS;
             for (WeldField<?, ?> field : type.getWeldFields(persistenceContextAnnotationType)) {
-                jpaInjectionPoints.add(FieldInjectionPoint.of(declaringBean, field));
+                jpaInjectionPoints.add(FieldInjectionPoint.of(contextId, declaringBean, field));
             }
             return jpaInjectionPoints.trimToSize();
         } else {
@@ -314,12 +314,12 @@ public class Beans {
         }
     }
 
-    public static Set<WeldInjectionPoint<?, ?>> getPersistenceUnitInjectionPoints(Bean<?> declaringBean, WeldClass<?> type, BeanManagerImpl manager) {
+    public static Set<WeldInjectionPoint<?, ?>> getPersistenceUnitInjectionPoints(String contextId, Bean<?> declaringBean, WeldClass<?> type, BeanManagerImpl manager) {
         if (manager.getServices().contains(JpaInjectionServices.class)) {
             ArraySet<WeldInjectionPoint<?, ?>> jpaInjectionPoints = new ArraySet<WeldInjectionPoint<?, ?>>();
             Class<? extends Annotation> persistenceUnitAnnotationType = manager.getServices().get(PersistenceApiAbstraction.class).PERSISTENCE_UNIT_ANNOTATION_CLASS;
             for (WeldField<?, ?> field : type.getWeldFields(persistenceUnitAnnotationType)) {
-                jpaInjectionPoints.add(FieldInjectionPoint.of(declaringBean, field));
+                jpaInjectionPoints.add(FieldInjectionPoint.of(contextId, declaringBean, field));
             }
             return jpaInjectionPoints.trimToSize();
         } else {
@@ -327,12 +327,12 @@ public class Beans {
         }
     }
 
-    public static Set<WeldInjectionPoint<?, ?>> getResourceInjectionPoints(Bean<?> declaringBean, WeldClass<?> type, BeanManagerImpl manager) {
+    public static Set<WeldInjectionPoint<?, ?>> getResourceInjectionPoints(String contextId, Bean<?> declaringBean, WeldClass<?> type, BeanManagerImpl manager) {
         if (manager.getServices().contains(ResourceInjectionServices.class)) {
             Class<? extends Annotation> resourceAnnotationType = manager.getServices().get(EJBApiAbstraction.class).RESOURCE_ANNOTATION_CLASS;
             ArraySet<WeldInjectionPoint<?, ?>> resourceInjectionPoints = new ArraySet<WeldInjectionPoint<?, ?>>();
             for (WeldField<?, ?> field : type.getWeldFields(resourceAnnotationType)) {
-                resourceInjectionPoints.add(FieldInjectionPoint.of(declaringBean, field));
+                resourceInjectionPoints.add(FieldInjectionPoint.of(contextId, declaringBean, field));
             }
             return resourceInjectionPoints.trimToSize();
         } else {
@@ -340,7 +340,7 @@ public class Beans {
         }
     }
 
-    public static List<Set<MethodInjectionPoint<?, ?>>> getInitializerMethods(Bean<?> declaringBean, WeldClass<?> type) {
+    public static List<Set<MethodInjectionPoint<?, ?>>> getInitializerMethods(String contextId, Bean<?> declaringBean, WeldClass<?> type) {
         List<Set<MethodInjectionPoint<?, ?>>> initializerMethodsList = new ArrayList<Set<MethodInjectionPoint<?, ?>>>();
         // Keep track of all seen methods so we can ignore overridden methods
         Multimap<MethodSignature, Package> seenMethods = Multimaps.newSetMultimap(new HashMap<MethodSignature, Collection<Package>>(), new Supplier<Set<Package>>() {
@@ -366,7 +366,7 @@ public class Beans {
                         throw new DefinitionException(INITIALIZER_METHOD_IS_GENERIC, method, type);
                     } else {
                         if (!isOverridden(method, seenMethods)) {
-                            MethodInjectionPoint<?, ?> initializerMethod = MethodInjectionPoint.of(declaringBean, method);
+                            MethodInjectionPoint<?, ?> initializerMethod = MethodInjectionPoint.of(contextId, declaringBean, method);
                             initializerMethods.add(initializerMethod);
                         }
                     }
@@ -389,40 +389,40 @@ public class Beans {
         }
     }
 
-    public static Set<ParameterInjectionPoint<?, ?>> getParameterInjectionPoints(Bean<?> declaringBean, WeldConstructor<?> constructor) {
+    public static Set<ParameterInjectionPoint<?, ?>> getParameterInjectionPoints(String contextId, Bean<?> declaringBean, WeldConstructor<?> constructor) {
         ArraySet<ParameterInjectionPoint<?, ?>> injectionPoints = new ArraySet<ParameterInjectionPoint<?, ?>>();
         for (WeldParameter<?, ?> parameter : constructor.getWeldParameters()) {
-            injectionPoints.add(ParameterInjectionPoint.of(declaringBean, parameter));
+            injectionPoints.add(ParameterInjectionPoint.of(contextId, declaringBean, parameter));
         }
         return injectionPoints.trimToSize();
     }
 
-    public static Set<ParameterInjectionPoint<?, ?>> getParameterInjectionPoints(Bean<?> declaringBean, MethodInjectionPoint<?, ?> method) {
+    public static Set<ParameterInjectionPoint<?, ?>> getParameterInjectionPoints(String contextId, Bean<?> declaringBean, MethodInjectionPoint<?, ?> method) {
         ArraySet<ParameterInjectionPoint<?, ?>> injectionPoints = new ArraySet<ParameterInjectionPoint<?, ?>>();
         for (WeldParameter<?, ?> parameter : method.getWeldParameters()) {
-            injectionPoints.add(ParameterInjectionPoint.of(declaringBean, parameter));
+            injectionPoints.add(ParameterInjectionPoint.of(contextId, declaringBean, parameter));
         }
         return injectionPoints.trimToSize();
     }
 
-    public static Set<ParameterInjectionPoint<?, ?>> getParameterInjectionPoints(Bean<?> declaringBean, List<Set<MethodInjectionPoint<?, ?>>> methodInjectionPoints) {
+    public static Set<ParameterInjectionPoint<?, ?>> getParameterInjectionPoints(String contextId, Bean<?> declaringBean, List<Set<MethodInjectionPoint<?, ?>>> methodInjectionPoints) {
         ArraySet<ParameterInjectionPoint<?, ?>> injectionPoints = new ArraySet<ParameterInjectionPoint<?, ?>>();
         for (Set<MethodInjectionPoint<?, ?>> i : methodInjectionPoints) {
             for (MethodInjectionPoint<?, ?> method : i) {
                 for (WeldParameter<?, ?> parameter : method.getWeldParameters()) {
-                    injectionPoints.add(ParameterInjectionPoint.of(declaringBean, parameter));
+                    injectionPoints.add(ParameterInjectionPoint.of(contextId, declaringBean, parameter));
                 }
             }
         }
         return injectionPoints.trimToSize();
     }
 
-    private static void addFieldInjectionPoint(WeldField<?, ?> annotatedField, Set<FieldInjectionPoint<?, ?>> injectableFields, Bean<?> declaringBean) {
+    private static void addFieldInjectionPoint(String contextId, WeldField<?, ?> annotatedField, Set<FieldInjectionPoint<?, ?>> injectableFields, Bean<?> declaringBean) {
         if (!annotatedField.isAnnotationPresent(Produces.class)) {
             if (annotatedField.isFinal()) {
                 throw new DefinitionException(QUALIFIER_ON_FINAL_FIELD, annotatedField);
             }
-            FieldInjectionPoint<?, ?> fieldInjectionPoint = FieldInjectionPoint.of(declaringBean, annotatedField);
+            FieldInjectionPoint<?, ?> fieldInjectionPoint = FieldInjectionPoint.of(contextId, declaringBean, annotatedField);
             injectableFields.add(fieldInjectionPoint);
         }
     }
@@ -573,7 +573,7 @@ public class Beans {
         return false;
     }
 
-    public static <T> ConstructorInjectionPoint<T> getBeanConstructor(Bean<T> declaringBean, WeldClass<T> type) {
+    public static <T> ConstructorInjectionPoint<T> getBeanConstructor(String contextId, Bean<T> declaringBean, WeldClass<T> type) {
         ConstructorInjectionPoint<T> constructor = null;
         Collection<WeldConstructor<T>> initializerAnnotatedConstructors = type.getWeldConstructors(Inject.class);
         log.trace(FOUND_INJECTABLE_CONSTRUCTORS, initializerAnnotatedConstructors, type);
@@ -582,11 +582,11 @@ public class Beans {
                 throw new DefinitionException(AMBIGUOUS_CONSTRUCTOR, type, initializerAnnotatedConstructors);
             }
         } else if (initializerAnnotatedConstructors.size() == 1) {
-            constructor = ConstructorInjectionPoint.of(declaringBean, initializerAnnotatedConstructors.iterator().next());
+            constructor = ConstructorInjectionPoint.of(contextId, declaringBean, initializerAnnotatedConstructors.iterator().next());
             log.trace(FOUND_ONE_INJECTABLE_CONSTRUCTOR, constructor, type);
         } else if (type.getNoArgsWeldConstructor() != null) {
 
-            constructor = ConstructorInjectionPoint.of(declaringBean, type.getNoArgsWeldConstructor());
+            constructor = ConstructorInjectionPoint.of(contextId, declaringBean, type.getNoArgsWeldConstructor());
             log.trace(FOUND_DEFAULT_CONSTRUCTOR, constructor, type);
         }
 
@@ -721,14 +721,14 @@ public class Beans {
         return annotatedItem.isAnnotationPresent(Decorator.class);
     }
 
-    public static Annotation[] mergeInQualifiers(Annotation[] qualifiers, Annotation[] newQualifiers) {
+    public static Annotation[] mergeInQualifiers(String contextId, Annotation[] qualifiers, Annotation[] newQualifiers) {
         if (qualifiers == null || newQualifiers == null)
             return EMPTY_ANNOTATIONS;
 
-        return mergeInQualifiers(asList(qualifiers), newQualifiers).toArray(Reflections.EMPTY_ANNOTATIONS);
+        return mergeInQualifiers(contextId, asList(qualifiers), newQualifiers).toArray(Reflections.EMPTY_ANNOTATIONS);
     }
 
-    public static Set<Annotation> mergeInQualifiers(Collection<Annotation> qualifiers, Annotation[] newQualifiers) {
+    public static Set<Annotation> mergeInQualifiers(String contextId, Collection<Annotation> qualifiers, Annotation[] newQualifiers) {
         Set<Annotation> result = new HashSet<Annotation>();
 
         if (qualifiers != null && qualifiers.isEmpty() == false)
@@ -737,7 +737,7 @@ public class Beans {
         if (newQualifiers != null && newQualifiers.length > 0) {
             Set<Annotation> checkedNewQualifiers = new HashSet<Annotation>();
             for (Annotation qualifier : newQualifiers) {
-                if (!Container.instance().services().get(MetaAnnotationStore.class).getBindingTypeModel(qualifier.annotationType()).isValid()) {
+                if (!Container.instance(contextId).services().get(MetaAnnotationStore.class).getBindingTypeModel(qualifier.annotationType()).isValid()) {
                     throw new IllegalArgumentException(ANNOTATION_NOT_QUALIFIER, qualifier);
                 }
                 if (checkedNewQualifiers.contains(qualifier)) {
@@ -747,7 +747,7 @@ public class Beans {
             }
             result.addAll(checkedNewQualifiers);
         }
-
+        //result.addAll(checkedNewQualifiers);
         return result;
     }
 

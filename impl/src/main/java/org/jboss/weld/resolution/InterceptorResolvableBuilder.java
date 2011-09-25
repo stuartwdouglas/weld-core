@@ -33,19 +33,19 @@ import static org.jboss.weld.logging.messages.BeanManagerMessage.INTERCEPTOR_RES
 
 public class InterceptorResolvableBuilder extends ResolvableBuilder {
 
-    public InterceptorResolvableBuilder() {
-        super();
+    public InterceptorResolvableBuilder(String contextId) {
+        super(contextId);
     }
 
-    public InterceptorResolvableBuilder(Type type) {
-        super(type);
+    public InterceptorResolvableBuilder(String contextId, Type type) {
+        super(contextId, type);
     }
 
     private InterceptionType interceptionType;
 
     @Override
     protected void checkQualifier(Annotation qualifier) {
-        if (!Container.instance().services().get(MetaAnnotationStore.class).getInterceptorBindingModel(qualifier.annotationType()).isValid()) {
+        if (!Container.instance(contextId).services().get(MetaAnnotationStore.class).getInterceptorBindingModel(qualifier.annotationType()).isValid()) {
             throw new IllegalArgumentException(INTERCEPTOR_RESOLUTION_WITH_NONBINDING_TYPE, qualifier);
         }
         if (qualifiers.contains(qualifier)) {

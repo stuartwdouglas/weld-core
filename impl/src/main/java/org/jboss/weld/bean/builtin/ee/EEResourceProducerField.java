@@ -68,7 +68,7 @@ public class EEResourceProducerField<X, T> extends ProducerField<X, T> {
 
         public T call() throws Exception {
             if (instance == null) {
-                Contextual<T> contextual = Container.instance().services().get(ContextualStore.class).<Contextual<T>, T>getContextual(beanId);
+                Contextual<T> contextual = Container.instance(getBeanManager().getContextId()).services().get(ContextualStore.class).<Contextual<T>, T>getContextual(beanId);
                 if (contextual instanceof EEResourceProducerField<?, ?>) {
                     this.instance = Reflections.<EEResourceProducerField<?, T>>cast(contextual).createUnderlying(creationalContext);
                 } else {
@@ -101,7 +101,7 @@ public class EEResourceProducerField<X, T> extends ProducerField<X, T> {
 
     protected EEResourceProducerField(WeldField<T, ? super X> field, AbstractClassBean<X> declaringBean, BeanManagerImpl manager, ServiceRegistry services) {
         super(field, declaringBean, manager, services);
-        this.injectionPoint = FieldInjectionPoint.of(declaringBean, field);
+        this.injectionPoint = FieldInjectionPoint.of(manager.getContextId(), declaringBean, field);
     }
 
     @Override
@@ -130,7 +130,7 @@ public class EEResourceProducerField<X, T> extends ProducerField<X, T> {
             return createUnderlying(creationalContext);
         } else {
             BeanInstance proxyBeanInstance = new EnterpriseTargetBeanInstance(getTypes(), new CallableMethodHandler(new EEResourceCallable<T>(getBeanManager(), this, creationalContext)));
-            return new ProxyFactory<T>(getType(), getTypes(), this).create(proxyBeanInstance);
+            return new ProxyFactory<T>(beanManager.getContextId(), getType(), getTypes(), this).create(proxyBeanInstance);
         }
     }
 

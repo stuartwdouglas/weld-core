@@ -59,10 +59,11 @@ public class DecorationHelper<T> {
     private BeanManagerImpl beanManager;
     private final ContextualStore contextualStore;
     private final Bean<?> bean;
+    private final String contextId;
 
     List<Decorator<?>> decorators;
 
-    public DecorationHelper(TargetBeanInstance originalInstance, Bean<?> bean, Class<T> proxyClassForDecorator, BeanManagerImpl beanManager, ContextualStore contextualStore, List<Decorator<?>> decorators) {
+    public DecorationHelper(String contextId, TargetBeanInstance originalInstance, Bean<?> bean, Class<T> proxyClassForDecorator, BeanManagerImpl beanManager, ContextualStore contextualStore, List<Decorator<?>> decorators) {
         this.originalInstance = Reflections.<T>cast(originalInstance.getInstance());
         this.targetBeanInstance = originalInstance;
         this.beanManager = beanManager;
@@ -70,6 +71,7 @@ public class DecorationHelper<T> {
         this.decorators = new LinkedList<Decorator<?>>(decorators);
         this.proxyClassForDecorator = proxyClassForDecorator;
         this.bean = bean;
+        this.contextId = contextId;
         counter = 0;
     }
 
@@ -79,7 +81,7 @@ public class DecorationHelper<T> {
 
     public DecoratorProxyMethodHandler createMethodHandler(InjectionPoint injectionPoint, CreationalContext<?> creationalContext, Decorator<Object> decorator) {
         Object decoratorInstance = beanManager.getReference(injectionPoint, decorator, creationalContext);
-        SerializableContextualInstanceImpl<Decorator<Object>, Object> serializableContextualInstance = new SerializableContextualInstanceImpl<Decorator<Object>, Object>(decorator, decoratorInstance, null, contextualStore);
+        SerializableContextualInstanceImpl<Decorator<Object>, Object> serializableContextualInstance = new SerializableContextualInstanceImpl<Decorator<Object>, Object>(contextId, decorator, decoratorInstance, null, contextualStore);
         return new DecoratorProxyMethodHandler(serializableContextualInstance, previousDelegate);
     }
 
@@ -92,7 +94,7 @@ public class DecorationHelper<T> {
                 T proxy = SecureReflections.newInstance(proxyClassForDecorator);
                 TargetBeanInstance newTargetBeanInstance = new TargetBeanInstance(targetBeanInstance);
                 newTargetBeanInstance.setInterceptorsHandler(createMethodHandler(injectionPoint, creationalContext, Reflections.<Decorator<Object>>cast(decorators.get(counter++))));
-                ProxyFactory.setBeanInstance(proxy, newTargetBeanInstance, bean);
+                ProxyFactory.setBeanInstance(contextId, proxy, newTargetBeanInstance, bean);
                 previousDelegate = proxy;
                 return proxy;
             } catch (InstantiationException e) {
