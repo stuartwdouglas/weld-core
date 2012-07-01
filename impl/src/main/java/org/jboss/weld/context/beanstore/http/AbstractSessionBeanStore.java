@@ -1,14 +1,16 @@
 package org.jboss.weld.context.beanstore.http;
 
+import java.util.Collection;
+import java.util.Enumeration;
+
+import javax.servlet.http.HttpSession;
+
 import org.jboss.weld.context.beanstore.AttributeBeanStore;
 import org.jboss.weld.context.beanstore.NamingScheme;
+import org.jboss.weld.servlet.TouchedSessionAttributes;
 import org.jboss.weld.util.collections.EnumerationList;
 import org.jboss.weld.util.reflection.Reflections;
 import org.slf4j.cal10n.LocLogger;
-
-import javax.servlet.http.HttpSession;
-import java.util.Collection;
-import java.util.Enumeration;
 
 import static java.util.Collections.emptyList;
 import static org.jboss.weld.logging.Category.CONTEXT;
@@ -66,7 +68,13 @@ public abstract class AbstractSessionBeanStore extends AttributeBeanStore {
 
     @Override
     protected Object getAttribute(String prefixedId) {
-        return getSession(false).getAttribute(prefixedId);
+        TouchedSessionAttributes.markAttribute(prefixedId);
+        final HttpSession session = getSession(false);
+        if (session == null) {
+            return null;
+        } else {
+            return session.getAttribute(prefixedId);
+        }
     }
 
 }

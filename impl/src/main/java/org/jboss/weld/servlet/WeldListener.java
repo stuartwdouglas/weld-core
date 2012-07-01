@@ -22,6 +22,13 @@
  */
 package org.jboss.weld.servlet;
 
+import java.util.Set;
+
+import javax.servlet.ServletRequestEvent;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+import javax.servlet.http.HttpSessionEvent;
+
 import org.jboss.weld.Container;
 import org.jboss.weld.context.cache.RequestScopedBeanCache;
 import org.jboss.weld.context.http.HttpConversationContext;
@@ -30,10 +37,6 @@ import org.jboss.weld.context.http.HttpSessionContext;
 import org.jboss.weld.exceptions.IllegalStateException;
 import org.jboss.weld.servlet.api.helpers.AbstractServletListener;
 import org.slf4j.cal10n.LocLogger;
-
-import javax.servlet.ServletRequestEvent;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSessionEvent;
 
 import static org.jboss.weld.logging.Category.SERVLET;
 import static org.jboss.weld.logging.LoggerFactory.loggerFactory;
@@ -98,6 +101,14 @@ public class WeldListener extends AbstractServletListener {
             if (event.getServletRequest() instanceof HttpServletRequest) {
                 HttpServletRequest request = (HttpServletRequest) event.getServletRequest();
 
+                //for clustering we need to call setAttribute for every touched bean
+                final HttpSession session = request.getSession(false);
+                final Set<String> touched = TouchedSessionAttributes.getAndClearTouchedAttributes();
+                if(session != null) {
+                    for(String attr : touched) {
+                        session.setAttribute(attr, session.getAttribute(attr));
+                    }
+                }
                 try {
                     requestContext().invalidate();
                     requestContext().deactivate();
