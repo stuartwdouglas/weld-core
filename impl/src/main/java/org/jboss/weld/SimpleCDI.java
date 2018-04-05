@@ -21,6 +21,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
+import javax.enterprise.inject.spi.BeanManager;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
+
 import org.jboss.weld.bean.builtin.BeanManagerProxy;
 import org.jboss.weld.bootstrap.spi.BeanDeploymentArchive;
 import org.jboss.weld.logging.BeanManagerLogger;
@@ -97,7 +101,16 @@ public class SimpleCDI extends AbstractCDI<Object> {
     }
 
     @Override
-    public BeanManagerProxy getBeanManager() {
+    public BeanManager getBeanManager() {
+        try {
+            BeanManager bm = (BeanManager) new InitialContext().lookup("java:comp/BeanManager");
+            if(bm != null) {
+                return bm;
+            }
+        } catch (NamingException e) {
+            //ignore
+        }
+
         ContainerState state = container.getState();
         if (state.equals(ContainerState.STOPPED) || state.equals(ContainerState.SHUTDOWN)) {
             throw BeanManagerLogger.LOG.beanManagerNotAvailable();
